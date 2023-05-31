@@ -99,6 +99,11 @@ var (
 		Name:  "disable-grpc-gateway",
 		Usage: "Disable the gRPC gateway for JSON-HTTP requests",
 	}
+	// DisableInitialSync disables a node from syncing at start-up. Instead the node enters regular sync immediately.
+	DisableInitialSync = &cli.BoolFlag{
+		Name:  "disable-initial-sync",
+		Usage: "Starts the beacon node without entering initial sync and instead exits to regular sync immediately.",
+	}
 	// GRPCGatewayHost specifies a gRPC gateway host for Prysm.
 	GRPCGatewayHost = &cli.StringFlag{
 		Name:  "grpc-gateway-host",

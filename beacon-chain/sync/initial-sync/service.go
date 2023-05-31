@@ -89,6 +89,13 @@ func (s *Service) Start() {
 		log.Debug("Exiting Initial Sync Service")
 		return
 	}
+
+	if flags.Get().DisableInitialSync {
+		s.markSynced()
+		log.Debug("Initial sync finished by skipping it")
+		return
+	}
+
 	if gt.After(prysmTime.Now()) {
 		s.markSynced()
 		log.WithField("genesisTime", gt).Info("Genesis time has not arrived - not syncing")

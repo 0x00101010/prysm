@@ -60,6 +60,7 @@ var appFlags = []cli.Flag{
 	flags.EnableDebugRPCEndpoints,
 	flags.EnableRegistrationCache,
 	flags.SubscribeToAllSubnets,
+	flags.DisableInitialSync,
 	flags.HistoricalSlasherNode,
 	flags.ChainID,
 	flags.NetworkID,
