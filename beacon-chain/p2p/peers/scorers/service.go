@@ -8,6 +8,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/prysmaticlabs/prysm/v4/beacon-chain/p2p/peers/peerdata"
 	"github.com/prysmaticlabs/prysm/v4/config/features"
+	"github.com/sirupsen/logrus"
 )
 
 var _ Scorer = (*Service)(nil)
@@ -130,16 +131,21 @@ func (s *Service) IsBadPeer(pid peer.ID) bool {
 	return s.IsBadPeerNoLock(pid)
 }
 
+var log = logrus.WithField("prefix", "scroers")
+
 // IsBadPeerNoLock is a lock-free version of IsBadPeer.
 func (s *Service) IsBadPeerNoLock(pid peer.ID) bool {
 	if s.scorers.badResponsesScorer.isBadPeer(pid) {
+		log.WithField("bad_peers", s.scorers.badResponsesScorer.BadPeers()).Debug("bad peer by bad response scorer")
 		return true
 	}
 	if s.scorers.peerStatusScorer.isBadPeer(pid) {
+		log.WithField("peerData", s.scorers.peerStatusScorer.BadPeers()).Debug("bad peer by peer status scorer")
 		return true
 	}
 	if features.Get().EnablePeerScorer {
 		if s.scorers.gossipScorer.isBadPeer(pid) {
+			log.WithField("peerData", s.scorers.gossipScorer.BadPeers()).Debug("bad peer by gossip scorer scorer")
 			return true
 		}
 	}
