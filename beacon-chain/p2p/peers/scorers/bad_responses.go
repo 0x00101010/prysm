@@ -125,6 +125,7 @@ func (s *BadResponsesScorer) IsBadPeer(pid peer.ID) bool {
 // isBadPeer is lock-free version of IsBadPeer.
 func (s *BadResponsesScorer) isBadPeer(pid peer.ID) bool {
 	if peerData, ok := s.store.PeerData(pid); ok {
+		log.WithField("bad_responses", peerData.BadResponses).Debug("bad responses count")
 		return peerData.BadResponses >= s.config.Threshold
 	}
 	return false
