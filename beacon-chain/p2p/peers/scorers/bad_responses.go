@@ -12,10 +12,10 @@ var _ Scorer = (*BadResponsesScorer)(nil)
 
 const (
 	// DefaultBadResponsesThreshold defines how many bad responses to tolerate before peer is deemed bad.
-	DefaultBadResponsesThreshold = 1000
+	DefaultBadResponsesThreshold = 10000
 	// DefaultBadResponsesDecayInterval defines how often to decay previous statistics.
 	// Every interval bad responses counter will be decremented by 1.
-	DefaultBadResponsesDecayInterval = time.Minute
+	DefaultBadResponsesDecayInterval = time.Second
 	// DefaultBadResponsesPenaltyFactor defines the penalty factor applied to a peer based on their bad
 	// response count.
 	DefaultBadResponsesPenaltyFactor = 10

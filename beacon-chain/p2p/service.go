@@ -46,7 +46,7 @@ var pollingPeriod = 6 * time.Second
 var refreshRate = slots.DivideSlotBy(2)
 
 // maxBadResponses is the maximum number of bad responses from a peer before we stop talking to it.
-const maxBadResponses = 1000
+const maxBadResponses = 10000
 
 // pubsubQueueSize is the size that we assign to our validation queue and outbound message queue for
 // gossipsub.
@@ -151,7 +151,7 @@ func NewService(ctx context.Context, cfg *Config) (*Service, error) {
 		ScorerParams: &scorers.Config{
 			BadResponsesScorerConfig: &scorers.BadResponsesScorerConfig{
 				Threshold:     maxBadResponses,
-				DecayInterval: time.Minute,
+				DecayInterval: time.Second,
 			},
 		},
 	})
