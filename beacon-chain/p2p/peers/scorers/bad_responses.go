@@ -5,16 +5,17 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/prysmaticlabs/prysm/v4/beacon-chain/p2p/peers/peerdata"
+	"github.com/sirupsen/logrus"
 )
 
 var _ Scorer = (*BadResponsesScorer)(nil)
 
 const (
 	// DefaultBadResponsesThreshold defines how many bad responses to tolerate before peer is deemed bad.
-	DefaultBadResponsesThreshold = 6
+	DefaultBadResponsesThreshold = 1000
 	// DefaultBadResponsesDecayInterval defines how often to decay previous statistics.
 	// Every interval bad responses counter will be decremented by 1.
-	DefaultBadResponsesDecayInterval = time.Hour
+	DefaultBadResponsesDecayInterval = time.Minute
 	// DefaultBadResponsesPenaltyFactor defines the penalty factor applied to a peer based on their bad
 	// response count.
 	DefaultBadResponsesPenaltyFactor = 10
@@ -49,6 +50,11 @@ func newBadResponsesScorer(store *peerdata.Store, config *BadResponsesScorerConf
 	if scorer.config.DecayInterval == 0 {
 		scorer.config.DecayInterval = DefaultBadResponsesDecayInterval
 	}
+
+	log.WithFields(logrus.Fields{
+		"threshold":      scorer.config.Threshold,
+		"decay_interval": scorer.config.DecayInterval,
+	}).Debug("bad response scorer initialization")
 	return scorer
 }
 
@@ -125,8 +131,14 @@ func (s *BadResponsesScorer) IsBadPeer(pid peer.ID) bool {
 // isBadPeer is lock-free version of IsBadPeer.
 func (s *BadResponsesScorer) isBadPeer(pid peer.ID) bool {
 	if peerData, ok := s.store.PeerData(pid); ok {
-		log.WithField("bad_responses", peerData.BadResponses).Debug("bad responses count")
-		return peerData.BadResponses >= s.config.Threshold
+		bad := peerData.BadResponses >= s.config.Threshold
+		if bad {
+			log.WithFields(logrus.Fields{
+				"bad_responses": peerData.BadResponses,
+				"threshold":     s.config.Threshold,
+			}).Debug("bad responses count")
+		}
+		return bad
 	}
 	return false
 }
