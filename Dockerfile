@@ -11,7 +11,7 @@ RUN apt-get update && \
     zip unzip libtinfo5 patch zlib1g-dev autoconf libtool \
     pkg-config make docker.io gnupg2 libgmp-dev python3
 
-ENV GOPROXY=https://gomodules.cbhq.net/
+# ENV GOPROXY=https://gomodules.cbhq.net/
 COPY ./go.mod ./go.sum /app/
 
 RUN go mod download
