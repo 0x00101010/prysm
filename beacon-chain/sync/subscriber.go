@@ -119,7 +119,7 @@ func (s *Service) registerSubscribers(epoch primitives.Epoch, digest [4]byte) {
 		s.attesterSubnetIndices,
 	)
 	// Altair Fork Version
-	if epoch >= params.BeaconConfig().AltairForkEpoch {
+	if params.BeaconConfig().AltairForkEpoch <= epoch {
 		s.subscribe(
 			p2p.SyncContributionAndProofSubnetTopicFormat,
 			s.validateSyncContributionAndProof,
@@ -137,7 +137,7 @@ func (s *Service) registerSubscribers(epoch primitives.Epoch, digest [4]byte) {
 	}
 
 	// New Gossip Topic in Capella
-	if epoch >= params.BeaconConfig().CapellaForkEpoch {
+	if params.BeaconConfig().CapellaForkEpoch <= epoch {
 		s.subscribe(
 			p2p.BlsToExecutionChangeSubnetTopicFormat,
 			s.validateBlsToExecutionChange,
@@ -147,7 +147,7 @@ func (s *Service) registerSubscribers(epoch primitives.Epoch, digest [4]byte) {
 	}
 
 	// New Gossip Topic in Deneb
-	if epoch >= params.BeaconConfig().DenebForkEpoch {
+	if params.BeaconConfig().DenebForkEpoch <= epoch {
 		if coreTime.PeerDASIsActive(slots.UnsafeEpochStart(epoch)) {
 			s.subscribeWithParameters(
 				p2p.DataColumnSubnetTopicFormat,
