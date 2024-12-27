@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/db/filesystem"
 	fieldparams "github.com/prysmaticlabs/prysm/v5/config/fieldparams"
+	"github.com/prysmaticlabs/prysm/v5/config/params"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/blocks"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/primitives"
 )
@@ -65,7 +66,7 @@ func (c *cache) delete(key cacheKey) {
 
 // cacheEntry holds a fixed-length cache of BlobSidecars.
 type cacheEntry struct {
-	scs         [fieldparams.MaxBlobsPerBlock]*blocks.ROBlob
+	scs         []*blocks.ROBlob
 	colScs      [fieldparams.NumberOfColumns]*blocks.RODataColumn
 	diskSummary filesystem.BlobStorageSummary
 }
@@ -78,8 +79,12 @@ func (e *cacheEntry) setDiskSummary(sum filesystem.BlobStorageSummary) {
 // Only the first BlobSidecar of a given Index will be kept in the cache.
 // stash will return an error if the given blob is already in the cache, or if the Index is out of bounds.
 func (e *cacheEntry) stash(sc *blocks.ROBlob) error {
-	if sc.Index >= fieldparams.MaxBlobsPerBlock {
+	maxBlobsPerBlock := params.BeaconConfig().MaxBlobsPerBlock(sc.Slot())
+	if sc.Index >= uint64(maxBlobsPerBlock) {
 		return errors.Wrapf(errIndexOutOfBounds, "index=%d", sc.Index)
+	}
+	if e.scs == nil {
+		e.scs = make([]*blocks.ROBlob, maxBlobsPerBlock)
 	}
 	if e.scs[sc.Index] != nil {
 		return errors.Wrapf(ErrDuplicateSidecar, "root=%#x, index=%d, commitment=%#x", sc.BlockRoot(), sc.Index, sc.KzgCommitment)
@@ -105,12 +110,13 @@ func (e *cacheEntry) stashColumns(sc *blocks.RODataColumn) error {
 // commitments were found in the cache and the sidecar slice return value can be used
 // to perform a DA check against the cached sidecars.
 // filter only returns blobs that need to be checked. Blobs already available on disk will be excluded.
-func (e *cacheEntry) filter(root [32]byte, kc safeCommitmentArray) ([]blocks.ROBlob, error) {
-	if e.diskSummary.AllAvailable(kc.count()) {
+func (e *cacheEntry) filter(root [32]byte, kc [][]byte, slot primitives.Slot) ([]blocks.ROBlob, error) {
+	count := len(kc)
+	if e.diskSummary.AllAvailable(count) {
 		return nil, nil
 	}
-	scs := make([]blocks.ROBlob, 0, kc.count())
-	for i := range uint64(fieldparams.MaxBlobsPerBlock) {
+	scs := make([]blocks.ROBlob, 0, count)
+	for i := uint64(0); i < uint64(count); i++ {
 		// We already have this blob, we don't need to write it or validate it.
 		if e.diskSummary.HasIndex(i) {
 			continue
@@ -165,19 +171,6 @@ func (e *cacheEntry) filterColumns(root [32]byte, commitmentsArray *safeCommitme
 	}
 
 	return sidecars, nil
-}
-
-// safeCommitmentArray is a fixed size array of commitment byte slices. This is helpful for avoiding
-// gratuitous bounds checks.
-type safeCommitmentArray [fieldparams.MaxBlobsPerBlock][]byte
-
-func (s safeCommitmentArray) count() int {
-	for i := range s {
-		if s[i] == nil {
-			return i
-		}
-	}
-	return fieldparams.MaxBlobsPerBlock
 }
 
 // safeCommitmentsArray is a fixed size array of commitments.

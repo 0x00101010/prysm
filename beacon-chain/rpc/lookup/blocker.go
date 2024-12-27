@@ -138,14 +138,30 @@ func (p *BeaconDbBlocker) Block(ctx context.Context, id []byte) (interfaces.Read
 
 // blobsFromStoredBlobs retrieves blobs corresponding to `indices` and `root` from the store.
 // This function expects blobs to be stored directly (aka. no data columns).
-func (p *BeaconDbBlocker) blobsFromStoredBlobs(indices map[uint64]bool, root []byte) ([]*blocks.VerifiedROBlob, *core.RpcError) {
+func (p *BeaconDbBlocker) blobsFromStoredBlobs(
+	indices map[uint64]bool,
+	root []byte,
+	slot primitives.Slot,
+	commitments [][]byte,
+) ([]*blocks.VerifiedROBlob, *core.RpcError) {
 	// If no indices are provided in the request, we fetch all available blobs for the block.
 	if len(indices) == 0 {
-		// Get all blob indices for the block.
-		indicesMap, err := p.BlobStorage.Indices(bytesutil.ToBytes32(root))
+		indicesMap, err := p.BlobStorage.Indices(bytesutil.ToBytes32(root), slot)
 		if err != nil {
-			log.WithField("blockRoot", hexutil.Encode(root)).Error(errors.Wrapf(err, "could not retrieve blob indices for root %#x", root))
+			log.WithField("blockRoot", hexutil.Encode(root)).Error("Could not retrieve blob indices for root")
 			return nil, &core.RpcError{Err: fmt.Errorf("could not retrieve blob indices for root %#x", root), Reason: core.Internal}
+		}
+
+		// Get the maximum index.
+		maxIndex := -1
+		for index, exists := range indicesMap {
+			if exists && index > maxIndex {
+				maxIndex = index
+			}
+		}
+
+		if maxIndex >= len(commitments) {
+			return nil, &core.RpcError{Err: fmt.Errorf("%d blob indices for only %d blob kzg commitments", len(indicesMap), len(commitments)), Reason: core.BadRequest}
 		}
 
 		for indice, exists := range indicesMap {
@@ -163,7 +179,7 @@ func (p *BeaconDbBlocker) blobsFromStoredBlobs(indices map[uint64]bool, root []b
 			log.WithFields(log.Fields{
 				"blockRoot": hexutil.Encode(root),
 				"blobIndex": index,
-			}).Error(errors.Wrapf(err, "could not retrieve blob for block root %#x at index %d", root, index))
+			}).Error("Could not retrieve blob for block root")
 			return nil, &core.RpcError{Err: fmt.Errorf("could not retrieve blob for block root %#x at index %d", root, index), Reason: core.Internal}
 		}
 		blobs = append(blobs, &vblob)
@@ -490,7 +506,7 @@ func (p *BeaconDbBlocker) Blobs(ctx context.Context, id string, indices map[uint
 	}
 
 	if !isPeerDASEnabledForBlock {
-		return p.blobsFromStoredBlobs(indices, root)
+		return p.blobsFromStoredBlobs(indices, root, blockSlot, commitments)
 	}
 
 	return p.blobsFromStoredDataColumns(indices, root)

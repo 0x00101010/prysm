@@ -540,7 +540,7 @@ func TestService_BroadcastDataColumn(t *testing.T) {
 
 	b, err := blocks.NewSignedBeaconBlock(util.NewBeaconBlockElectra())
 	require.NoError(t, err)
-	blobs := make([]kzg.Blob, fieldparams.MaxBlobsPerBlock)
+	blobs := make([]kzg.Blob, 6)
 	sidecars, err := peerdas.DataColumnSidecars(b, blobs)
 	require.NoError(t, err)
 

@@ -9,7 +9,10 @@ import (
 )
 
 // blobIndexMask is a bitmask representing the set of blob indices that are currently set.
-type blobIndexMask [fieldparams.NumberOfColumns]bool
+// TODO: Separate blobs from data columns
+type blobIndexMask []bool
+
+// type blobIndexMask [fieldparams.NumberOfColumns]bool
 
 // BlobStorageSummary represents cached information about the BlobSidecars on disk for each root the cache knows about.
 type BlobStorageSummary struct {
@@ -20,7 +23,11 @@ type BlobStorageSummary struct {
 // HasIndex returns true if the BlobSidecar at the given index is available in the filesystem.
 func (s BlobStorageSummary) HasIndex(idx uint64) bool {
 	// Protect from panic, but assume callers are sophisticated enough to not need an error telling them they have an invalid idx.
-	if idx >= fieldparams.MaxBlobsPerBlock {
+	maxBlobsPerBlock := params.BeaconConfig().MaxBlobsPerBlock(s.slot)
+	if idx >= uint64(maxBlobsPerBlock) {
+		return false
+	}
+	if idx >= uint64(len(s.mask)) {
 		return false
 	}
 	return s.mask[idx]
@@ -32,12 +39,21 @@ func (s BlobStorageSummary) HasDataColumnIndex(idx uint64) bool {
 	if idx >= fieldparams.NumberOfColumns {
 		return false
 	}
+
+	if idx >= uint64(len(s.mask)) {
+		return false
+	}
+
 	return s.mask[idx]
 }
 
 // AllAvailable returns true if we have all blobs for all indices from 0 to count-1.
 func (s BlobStorageSummary) AllAvailable(count int) bool {
-	if count > fieldparams.MaxBlobsPerBlock {
+	maxBlobsPerBlock := params.BeaconConfig().MaxBlobsPerBlock(s.slot)
+	if count > maxBlobsPerBlock {
+		return false
+	}
+	if count > len(s.mask) {
 		return false
 	}
 	for i := 0; i < count; i++ {
@@ -92,16 +108,19 @@ func (s *blobStorageCache) Summary(root [32]byte) BlobStorageSummary {
 }
 
 func (s *blobStorageCache) ensure(key [32]byte, slot primitives.Slot, idx uint64) error {
-	// TODO: Separate blob index checks from data column index checks
-	/*
-		if idx >= fieldparams.MaxBlobsPerBlock {
-			return errIndexOutOfBounds
-		}
-	*/
+	// TODO: Separate blobs from data columns
+	// maxBlobsPerBlock := params.BeaconConfig().MaxBlobsPerBlock(slot)
+	// if idx >= uint64(maxBlobsPerBlock) {
+	// 	return errIndexOutOfBounds
+	// }
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v := s.cache[key]
 	v.slot = slot
+	if v.mask == nil {
+		// TODO: Separate blobs from data columns
+		v.mask = make(blobIndexMask, fieldparams.NumberOfColumns)
+	}
 	if !v.mask[idx] {
 		s.updateMetrics(1)
 	}

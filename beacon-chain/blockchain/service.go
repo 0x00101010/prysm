@@ -37,6 +37,7 @@ import (
 	"github.com/prysmaticlabs/prysm/v5/config/params"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/blocks"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/interfaces"
+	"github.com/prysmaticlabs/prysm/v5/consensus-types/primitives"
 	"github.com/prysmaticlabs/prysm/v5/encoding/bytesutil"
 	"github.com/prysmaticlabs/prysm/v5/monitoring/tracing/trace"
 	ethpb "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
@@ -75,6 +76,7 @@ type config struct {
 	DepositCache            cache.DepositCache
 	PayloadIDCache          *cache.PayloadIDCache
 	TrackedValidatorsCache  *cache.TrackedValidatorsCache
+	AttestationCache        *cache.AttestationCache
 	AttPool                 attestations.Pool
 	ExitPool                voluntaryexits.PoolManager
 	SlashingPool            slashings.PoolManager
@@ -104,20 +106,26 @@ var ErrMissingClockSetter = errors.New("blockchain Service initialized without a
 type blobNotifierMap struct {
 	sync.RWMutex
 	notifiers map[[32]byte]chan uint64
+	// TODO: Separate blobs from data columns
+	// seenIndex map[[32]byte][]bool
 	seenIndex map[[32]byte][fieldparams.NumberOfColumns]bool
 }
 
 // notifyIndex notifies a blob by its index for a given root.
 // It uses internal maps to keep track of seen indices and notifier channels.
-func (bn *blobNotifierMap) notifyIndex(root [32]byte, idx uint64) {
-	// TODO: Separate Data Columns from blobs
-	/*
-		if idx >= fieldparams.MaxBlobsPerBlock {
-			return
-		}*/
+func (bn *blobNotifierMap) notifyIndex(root [32]byte, idx uint64, slot primitives.Slot) {
+	// TODO: Separate blobs from data columns
+	// maxBlobsPerBlock := params.BeaconConfig().MaxBlobsPerBlock(slot)
+	// if idx >= uint64(maxBlobsPerBlock) {
+	// 	return
+	// }
 
 	bn.Lock()
 	seen := bn.seenIndex[root]
+	// TODO: Separate blobs from data columns
+	// if seen == nil {
+	// seen = make([]bool, maxBlobsPerBlock)
+	// }
 	if seen[idx] {
 		bn.Unlock()
 		return
@@ -128,6 +136,8 @@ func (bn *blobNotifierMap) notifyIndex(root [32]byte, idx uint64) {
 	// Retrieve or create the notifier channel for the given root.
 	c, ok := bn.notifiers[root]
 	if !ok {
+		// TODO: Separate blobs from data columns
+		// c = make(chan uint64, maxBlobsPerBlock)
 		c = make(chan uint64, fieldparams.NumberOfColumns)
 		bn.notifiers[root] = c
 	}
@@ -137,11 +147,15 @@ func (bn *blobNotifierMap) notifyIndex(root [32]byte, idx uint64) {
 	c <- idx
 }
 
-func (bn *blobNotifierMap) forRoot(root [32]byte) chan uint64 {
+func (bn *blobNotifierMap) forRoot(root [32]byte, slot primitives.Slot) chan uint64 {
+	// TODO: Separate blobs from data columns
+	// maxBlobsPerBlock := params.BeaconConfig().MaxBlobsPerBlock(slot)
 	bn.Lock()
 	defer bn.Unlock()
 	c, ok := bn.notifiers[root]
 	if !ok {
+		// TODO: Separate blobs from data columns
+		// c = make(chan uint64, maxBlobsPerBlock)
 		c = make(chan uint64, fieldparams.NumberOfColumns)
 		bn.notifiers[root] = c
 	}
@@ -168,6 +182,8 @@ func NewService(ctx context.Context, opts ...Option) (*Service, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	bn := &blobNotifierMap{
 		notifiers: make(map[[32]byte]chan uint64),
+		// TODO: Separate blobs from data columns
+		// seenIndex: make(map[[32]byte][]bool),
 		seenIndex: make(map[[32]byte][fieldparams.NumberOfColumns]bool),
 	}
 	srv := &Service{

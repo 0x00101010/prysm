@@ -4,13 +4,17 @@ import (
 	"testing"
 
 	fieldparams "github.com/prysmaticlabs/prysm/v5/config/fieldparams"
+	"github.com/prysmaticlabs/prysm/v5/config/params"
 	"github.com/prysmaticlabs/prysm/v5/encoding/bytesutil"
 	"github.com/prysmaticlabs/prysm/v5/testing/require"
 )
 
 func TestSlotByRoot_Summary(t *testing.T) {
-	t.Skip("Use new test for data columns")
-	var noneSet, allSet, firstSet, lastSet, oneSet blobIndexMask
+	noneSet := make([]bool, params.BeaconConfig().MaxBlobsPerBlock(0))
+	allSet := make([]bool, params.BeaconConfig().MaxBlobsPerBlock(0))
+	firstSet := make([]bool, params.BeaconConfig().MaxBlobsPerBlock(0))
+	lastSet := make([]bool, params.BeaconConfig().MaxBlobsPerBlock(0))
+	oneSet := make([]bool, params.BeaconConfig().MaxBlobsPerBlock(0))
 	firstSet[0] = true
 	lastSet[len(lastSet)-1] = true
 	oneSet[1] = true
@@ -20,49 +24,49 @@ func TestSlotByRoot_Summary(t *testing.T) {
 	cases := []struct {
 		name     string
 		root     [32]byte
-		expected *blobIndexMask
+		expected blobIndexMask
 	}{
 		{
 			name: "not found",
 		},
 		{
 			name:     "none set",
-			expected: &noneSet,
+			expected: noneSet,
 		},
 		{
 			name:     "index 1 set",
-			expected: &oneSet,
+			expected: oneSet,
 		},
 		{
 			name:     "all set",
-			expected: &allSet,
+			expected: allSet,
 		},
 		{
 			name:     "first set",
-			expected: &firstSet,
+			expected: firstSet,
 		},
 		{
 			name:     "last set",
-			expected: &lastSet,
+			expected: lastSet,
 		},
 	}
 	sc := newBlobStorageCache()
 	for _, c := range cases {
 		if c.expected != nil {
 			key := bytesutil.ToBytes32([]byte(c.name))
-			sc.cache[key] = BlobStorageSummary{slot: 0, mask: *c.expected}
+			sc.cache[key] = BlobStorageSummary{slot: 0, mask: c.expected}
 		}
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			key := bytesutil.ToBytes32([]byte(c.name))
 			sum := sc.Summary(key)
-			for i := range c.expected {
+			for i, has := range c.expected {
 				ui := uint64(i)
 				if c.expected == nil {
 					require.Equal(t, false, sum.HasIndex(ui))
 				} else {
-					require.Equal(t, c.expected[i], sum.HasIndex(ui))
+					require.Equal(t, has, sum.HasIndex(ui))
 				}
 			}
 		})
@@ -122,13 +126,13 @@ func TestAllAvailable(t *testing.T) {
 		},
 		{
 			name:  "out of bound is safe",
-			count: fieldparams.MaxBlobsPerBlock + 1,
+			count: params.BeaconConfig().MaxBlobsPerBlock(0) + 1,
 			aa:    false,
 		},
 		{
 			name:   "max present",
-			count:  fieldparams.MaxBlobsPerBlock,
-			idxSet: idxUpTo(fieldparams.MaxBlobsPerBlock),
+			count:  params.BeaconConfig().MaxBlobsPerBlock(0),
+			idxSet: idxUpTo(params.BeaconConfig().MaxBlobsPerBlock(0)),
 			aa:     true,
 		},
 		{
@@ -140,7 +144,7 @@ func TestAllAvailable(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			var mask blobIndexMask
+			mask := make([]bool, params.BeaconConfig().MaxBlobsPerBlock(0))
 			for _, idx := range c.idxSet {
 				mask[idx] = true
 			}
@@ -181,7 +185,15 @@ func TestHasDataColumnIndex(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			var mask blobIndexMask
+			// Get the maximum index that is stored.
+			maxIndex := uint64(0)
+			for index := range storedIndices {
+				if index > maxIndex {
+					maxIndex = index
+				}
+			}
+
+			mask := make(blobIndexMask, maxIndex+1)
 
 			for idx := range storedIndices {
 				mask[idx] = true
@@ -243,7 +255,15 @@ func TestAllDataColumnAvailable(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			var mask blobIndexMask
+			// Get the maximum index that is stored.
+			maxIndex := uint64(0)
+			for index := range c.storedIndices {
+				if index > maxIndex {
+					maxIndex = index
+				}
+			}
+
+			mask := make(blobIndexMask, maxIndex+1)
 
 			for idx := range c.storedIndices {
 				mask[idx] = true

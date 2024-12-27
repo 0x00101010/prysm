@@ -24,7 +24,7 @@ func RunCustodyColumnsTest(t *testing.T, config string) {
 	require.NoError(t, err, "failed to set config")
 
 	// Retrieve the test vector folders.
-	testFolders, testsFolderPath := utils.TestFolders(t, config, "eip7594", "networking/get_custody_columns/pyspec_tests")
+	testFolders, testsFolderPath := utils.TestFolders(t, config, "fulu", "networking/get_custody_columns/pyspec_tests")
 	if len(testFolders) == 0 {
 		t.Fatalf("no test folders found for %s", testsFolderPath)
 	}

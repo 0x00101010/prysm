@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"math"
 	"slices"
 	"time"
 
@@ -9,8 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/core/peerdas"
 	p2ptypes "github.com/prysmaticlabs/prysm/v5/beacon-chain/p2p/types"
-	"github.com/prysmaticlabs/prysm/v5/cmd/beacon-chain/flags"
-	fieldparams "github.com/prysmaticlabs/prysm/v5/config/fieldparams"
 	"github.com/prysmaticlabs/prysm/v5/config/params"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/primitives"
 	"github.com/prysmaticlabs/prysm/v5/monitoring/tracing"
@@ -197,7 +196,9 @@ func (s *Service) dataColumnSidecarsByRangeRPCHandler(ctx context.Context, msg i
 
 // Set the count limit to the number of blobs in a batch.
 func columnBatchLimit() uint64 {
-	return uint64(flags.Get().BlockBatchLimit) / fieldparams.MaxBlobsPerBlock
+	// TODO: Do something correct
+	return math.MaxUint64
+	// return uint64(flags.Get().BlockBatchLimit) / fieldparams.MaxBlobsPerBlock
 }
 
 // TODO: Generalize between data columns and blobs, while the validation parameters used are different they

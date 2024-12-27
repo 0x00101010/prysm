@@ -174,6 +174,10 @@ var (
 		Name:  "enable-discovery-reboot",
 		Usage: "Experimental: Enables the discovery listener to rebooted in the event of connectivity issues.",
 	}
+	enableExperimentalAttestationPool = &cli.BoolFlag{
+		Name:  "enable-experimental-attestation-pool",
+		Usage: "Enables an experimental attestation pool design.",
+	}
 	EnablePeerDAS = &cli.BoolFlag{
 		Name:  "peer-das",
 		Usage: "Enables Prysm to run with the experimental peer data availability sampling scheme.",
@@ -249,6 +253,7 @@ var BeaconChainFlags = append(deprecatedBeaconFlags, append(deprecatedFlags, []c
 	DisableQUIC,
 	DisableCommitteeAwarePacking,
 	EnableDiscoveryReboot,
+	enableExperimentalAttestationPool,
 	EnablePeerDAS,
 	DataColumnsWithholdCount,
 	DataColumnsIgnoreSlotMultiple,

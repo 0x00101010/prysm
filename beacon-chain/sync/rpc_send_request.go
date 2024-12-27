@@ -10,8 +10,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/blockchain"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/p2p"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/p2p/encoder"
@@ -26,6 +24,7 @@ import (
 	pb "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
 	"github.com/prysmaticlabs/prysm/v5/runtime/version"
 	"github.com/prysmaticlabs/prysm/v5/time/slots"
+	"github.com/sirupsen/logrus"
 )
 
 var errBlobChunkedReadFailure = errors.New("failed to read stream of chunk-encoded blobs")
@@ -174,9 +173,10 @@ func SendBlobsByRangeRequest(ctx context.Context, tor blockchain.TemporalOracle,
 	}
 	defer closeStream(stream, log)
 
+	maxBlobsPerBlock := uint64(params.BeaconConfig().MaxBlobsPerBlock(req.StartSlot))
 	max := params.BeaconConfig().MaxRequestBlobSidecars
-	if max > req.Count*fieldparams.MaxBlobsPerBlock {
-		max = req.Count * fieldparams.MaxBlobsPerBlock
+	if max > req.Count*maxBlobsPerBlock {
+		max = req.Count * maxBlobsPerBlock
 	}
 	vfuncs := []BlobResponseValidation{blobValidatorFromRangeReq(req), newSequentialBlobValidator()}
 	if len(bvs) > 0 {
@@ -187,7 +187,7 @@ func SendBlobsByRangeRequest(ctx context.Context, tor blockchain.TemporalOracle,
 
 func SendBlobSidecarByRoot(
 	ctx context.Context, tor blockchain.TemporalOracle, p2pApi p2p.P2P, pid peer.ID,
-	ctxMap ContextByteVersions, req *p2ptypes.BlobSidecarsByRootReq,
+	ctxMap ContextByteVersions, req *p2ptypes.BlobSidecarsByRootReq, slot primitives.Slot,
 ) ([]blocks.ROBlob, error) {
 	if uint64(len(*req)) > params.BeaconConfig().MaxRequestBlobSidecars {
 		return nil, errors.Wrapf(p2ptypes.ErrMaxBlobReqExceeded, "length=%d", len(*req))
@@ -205,8 +205,9 @@ func SendBlobSidecarByRoot(
 	defer closeStream(stream, log)
 
 	max := params.BeaconConfig().MaxRequestBlobSidecars
-	if max > uint64(len(*req))*fieldparams.MaxBlobsPerBlock {
-		max = uint64(len(*req)) * fieldparams.MaxBlobsPerBlock
+	maxBlobCount := params.BeaconConfig().MaxBlobsPerBlock(slot)
+	if max > uint64(len(*req)*maxBlobCount) {
+		max = uint64(len(*req) * maxBlobCount)
 	}
 	return readChunkEncodedBlobs(stream, p2pApi.Encoding(), ctxMap, blobValidatorFromRootReq(req), max)
 }
@@ -497,7 +498,8 @@ type seqBlobValid struct {
 }
 
 func (sbv *seqBlobValid) nextValid(blob blocks.ROBlob) error {
-	if blob.Index >= fieldparams.MaxBlobsPerBlock {
+	maxBlobsPerBlock := params.BeaconConfig().MaxBlobsPerBlock(blob.Slot())
+	if blob.Index >= uint64(maxBlobsPerBlock) {
 		return errBlobIndexOutOfBounds
 	}
 	if sbv.prev == nil {
