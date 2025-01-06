@@ -337,29 +337,29 @@ func (f *blocksFetcher) handleRequest(ctx context.Context, start primitives.Slot
 		return response
 	}
 
-	// Compute the first electra slot.
-	firstElectraSlot, err := slots.EpochStart(params.BeaconConfig().ElectraForkEpoch)
+	// Compute the first Fulu slot.
+	firstFuluSlot, err := slots.EpochStart(params.BeaconConfig().FuluForkEpoch)
 	if err != nil {
-		firstElectraSlot = math.MaxUint64
+		firstFuluSlot = math.MaxUint64
 	}
 
-	// Find the first block with a slot greater than or equal to the first electra slot.
+	// Find the first block with a slot greater than or equal to the first Fulu slot.
 	// (Blocks are sorted by slot)
-	firstElectraIndex := sort.Search(len(response.bwb), func(i int) bool {
-		return response.bwb[i].Block.Block().Slot() >= firstElectraSlot
+	firstFuluIndex := sort.Search(len(response.bwb), func(i int) bool {
+		return response.bwb[i].Block.Block().Slot() >= firstFuluSlot
 	})
 
-	preElectraBwbs := response.bwb[:firstElectraIndex]
-	postElectraBwbs := response.bwb[firstElectraIndex:]
+	preFuluBwbs := response.bwb[:firstFuluIndex]
+	postFuluBwbs := response.bwb[firstFuluIndex:]
 
 	// Fetch blobs.
-	if err := f.fetchBlobsFromPeer(ctx, preElectraBwbs, response.pid, peers); err != nil {
+	if err := f.fetchBlobsFromPeer(ctx, preFuluBwbs, response.pid, peers); err != nil {
 		response.err = err
 		return response
 	}
 
 	// Fetch data columns.
-	response.err = f.fetchDataColumnsFromPeers(ctx, postElectraBwbs, nil, delay, batchSize)
+	response.err = f.fetchDataColumnsFromPeers(ctx, postFuluBwbs, nil, delay, batchSize)
 	return response
 }
 

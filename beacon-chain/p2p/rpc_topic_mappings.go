@@ -71,16 +71,16 @@ const (
 
 	// RPCBlobSidecarsByRangeTopicV1 is a topic for requesting blob sidecars
 	// in the slot range [start_slot, start_slot + count), leading up to the current head block as selected by fork choice.
-	// Protocol ID: /eth2/beacon_chain/req/blob_sidecars_by_range/1/ - New in deneb.
+	// /eth2/beacon_chain/req/blob_sidecars_by_range/1/ - New in deneb.
 	RPCBlobSidecarsByRangeTopicV1 = protocolPrefix + BlobSidecarsByRangeName + SchemaVersionV1
-	// RPCBlobSidecarsByRootTopicV1 is a topic for requesting blob sidecars by their block root. New in deneb.
-	// /eth2/beacon_chain/req/blob_sidecars_by_root/1/
+	// RPCBlobSidecarsByRootTopicV1 is a topic for requesting blob sidecars by their block root.
+	// /eth2/beacon_chain/req/blob_sidecars_by_root/1/ - New in deneb.
 	RPCBlobSidecarsByRootTopicV1 = protocolPrefix + BlobSidecarsByRootName + SchemaVersionV1
-	// RPCDataColumnSidecarsByRootTopicV1 is a topic for requesting data column sidecars by their block root. New in PeerDAS.
-	// /eth2/beacon_chain/req/data_column_sidecars_by_root/1
+	// RPCDataColumnSidecarsByRootTopicV1 is a topic for requesting data column sidecars by their block root.
+	// /eth2/beacon_chain/req/data_column_sidecars_by_root/1 - New in Fulu.
 	RPCDataColumnSidecarsByRootTopicV1 = protocolPrefix + DataColumnSidecarsByRootName + SchemaVersionV1
-	// RPCDataColumnSidecarsByRangeTopicV1 is a topic for requesting data column sidecars by their slot. New in PeerDAS.
-	// /eth2/beacon_chain/req/data_column_sidecars_by_range/1
+	// RPCDataColumnSidecarsByRangeTopicV1 is a topic for requesting data column sidecars by their slot.
+	// /eth2/beacon_chain/req/data_column_sidecars_by_range/1 - New in Fulu.
 	RPCDataColumnSidecarsByRangeTopicV1 = protocolPrefix + DataColumnSidecarsByRangeName + SchemaVersionV1
 
 	// V2 RPC Topics
@@ -90,9 +90,18 @@ const (
 	RPCBlocksByRootTopicV2 = protocolPrefix + BeaconBlocksByRootsMessageName + SchemaVersionV2
 	// RPCMetaDataTopicV2 defines the v2 topic for the metadata rpc method.
 	RPCMetaDataTopicV2 = protocolPrefix + MetadataMessageName + SchemaVersionV2
+	// RPCBlobSidecarsByRangeTopicV2 defines the v2 topic for the blob sidecars by range rpc method.
+	RPCBlobSidecarsByRangeTopicV2 = protocolPrefix + BlobSidecarsByRangeName + SchemaVersionV2
+	// RPCBlobSidecarsByRootTopicV2 defines the v2 topic for the blob sidecars by root rpc method.
+	RPCBlobSidecarsByRootTopicV2 = protocolPrefix + BlobSidecarsByRootName + SchemaVersionV2
 
 	// V3 RPC Topics
+	// RPCMetaDataTopicV3 defines the v3 topic for the metadata rpc method.
 	RPCMetaDataTopicV3 = protocolPrefix + MetadataMessageName + SchemaVersionV3
+	// RPCBlobSidecarsByRangeTopicV3 defines the v3 topic for the blob sidecars by range rpc method.
+	RPCBlobSidecarsByRangeTopicV3 = protocolPrefix + BlobSidecarsByRangeName + SchemaVersionV3
+	// RPCBlobSidecarsByRootTopicV3 defines the v3 topic for the blob sidecars by root rpc method.
+	RPCBlobSidecarsByRootTopicV3 = protocolPrefix + BlobSidecarsByRootName + SchemaVersionV3
 )
 
 // RPC errors for topic parsing.
@@ -155,8 +164,8 @@ var altairMapping = map[string]bool{
 	MetadataMessageName:            true,
 }
 
-// Maps all the RPC messages which are to updated with peerDAS fork epoch.
-var peerDASMapping = map[string]bool{
+// Maps all the RPC messages which are to updated in fulu.
+var fuluMapping = map[string]bool{
 	MetadataMessageName: true,
 }
 
@@ -305,9 +314,9 @@ func TopicFromMessage(msg string, epoch primitives.Epoch) (string, error) {
 		version = SchemaVersionV2
 	}
 
-	// Check if the message is to be updated in peerDAS.
-	isPeerDAS := epoch >= params.BeaconConfig().ElectraForkEpoch
-	if isPeerDAS && peerDASMapping[msg] {
+	// Check if the message is to be updated in fulu.
+	isFulu := epoch >= params.BeaconConfig().FuluForkEpoch
+	if isFulu && fuluMapping[msg] {
 		version = SchemaVersionV3
 	}
 

@@ -29,6 +29,8 @@ const (
 	mainnetDenebForkEpoch = 269568 // March 13, 2024, 13:55:35 UTC
 	// Electra Fork Epoch for mainnet config
 	mainnetElectraForkEpoch = math.MaxUint64 // Far future / to be defined
+	// Fulu Fork Epoch for mainnet config
+	mainnetFuluForkEpoch = math.MaxUint64 // Far future / to be defined
 )
 
 var mainnetNetworkConfig = &NetworkConfig{
@@ -195,6 +197,7 @@ var mainnetBeaconConfig = &BeaconChainConfig{
 	BeaconStateCapellaFieldCount:   28,
 	BeaconStateDenebFieldCount:     28,
 	BeaconStateElectraFieldCount:   37,
+	BeaconStateFuluFieldCount:      37,
 
 	// Slasher related values.
 	WeakSubjectivityPeriod:          54000,
@@ -217,6 +220,8 @@ var mainnetBeaconConfig = &BeaconChainConfig{
 	DenebForkEpoch:       mainnetDenebForkEpoch,
 	ElectraForkVersion:   []byte{5, 0, 0, 0},
 	ElectraForkEpoch:     mainnetElectraForkEpoch,
+	FuluForkVersion:      []byte{6, 0, 0, 0},
+	FuluForkEpoch:        mainnetFuluForkEpoch,
 
 	// New values introduced in Altair hard fork 1.
 	// Participation flag indices.
@@ -268,7 +273,8 @@ var mainnetBeaconConfig = &BeaconChainConfig{
 	ExecutionEngineTimeoutValue: 8, // 8 seconds default based on: https://github.com/ethereum/execution-apis/blob/main/src/engine/specification.md#core
 
 	// Subnet value
-	BlobsidecarSubnetCount: 6,
+	BlobsidecarSubnetCount:        6,
+	BlobsidecarSubnetCountElectra: 9,
 
 	MaxPerEpochActivationChurnLimit:  8,
 	MinEpochsForBlobsSidecarsRequest: 4096,
@@ -323,6 +329,8 @@ var mainnetBeaconConfig = &BeaconChainConfig{
 	DeprecatedMaxBlobsPerBlock:           6,
 	DeprecatedMaxBlobsPerBlockElectra:    9,
 	DeprecatedTargetBlobsPerBlockElectra: 6,
+	MaxRequestBlobSidecarsElectra:        1152,
+	MaxRequestBlobSidecarsFulu:           1536,
 }
 
 // MainnetTestConfig provides a version of the mainnet config that has a different name
@@ -344,6 +352,7 @@ func FillTestVersions(c *BeaconChainConfig, b byte) {
 	c.CapellaForkVersion = make([]byte, fieldparams.VersionLength)
 	c.DenebForkVersion = make([]byte, fieldparams.VersionLength)
 	c.ElectraForkVersion = make([]byte, fieldparams.VersionLength)
+	c.FuluForkVersion = make([]byte, fieldparams.VersionLength)
 
 	c.GenesisForkVersion[fieldparams.VersionLength-1] = b
 	c.AltairForkVersion[fieldparams.VersionLength-1] = b
@@ -351,6 +360,7 @@ func FillTestVersions(c *BeaconChainConfig, b byte) {
 	c.CapellaForkVersion[fieldparams.VersionLength-1] = b
 	c.DenebForkVersion[fieldparams.VersionLength-1] = b
 	c.ElectraForkVersion[fieldparams.VersionLength-1] = b
+	c.FuluForkVersion[fieldparams.VersionLength-1] = b
 
 	c.GenesisForkVersion[0] = 0
 	c.AltairForkVersion[0] = 1
@@ -358,4 +368,5 @@ func FillTestVersions(c *BeaconChainConfig, b byte) {
 	c.CapellaForkVersion[0] = 3
 	c.DenebForkVersion[0] = 4
 	c.ElectraForkVersion[0] = 5
+	c.FuluForkVersion[0] = 5
 }

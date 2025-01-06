@@ -21,7 +21,6 @@ import (
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/primitives"
 	"github.com/prysmaticlabs/prysm/v5/encoding/bytesutil"
 	ethpb "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
-	pb "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
 	"github.com/prysmaticlabs/prysm/v5/runtime/version"
 	"github.com/prysmaticlabs/prysm/v5/time/slots"
 	"github.com/sirupsen/logrus"
@@ -173,8 +172,20 @@ func SendBlobsByRangeRequest(ctx context.Context, tor blockchain.TemporalOracle,
 	}
 	defer closeStream(stream, log)
 
-	maxBlobsPerBlock := uint64(params.BeaconConfig().MaxBlobsPerBlock(req.StartSlot))
-	max := params.BeaconConfig().MaxRequestBlobSidecars
+	beaconConfig := params.BeaconConfig()
+
+	maxBlobsPerBlock := uint64(beaconConfig.MaxBlobsPerBlock(req.StartSlot))
+	max := beaconConfig.MaxRequestBlobSidecars
+	startEpoch := slots.ToEpoch(req.StartSlot)
+
+	if startEpoch >= beaconConfig.ElectraForkEpoch {
+		max = beaconConfig.MaxRequestBlobSidecarsElectra
+	}
+
+	if startEpoch >= beaconConfig.FuluForkEpoch {
+		max = beaconConfig.MaxRequestBlobSidecarsFulu
+	}
+
 	if max > req.Count*maxBlobsPerBlock {
 		max = req.Count * maxBlobsPerBlock
 	}
@@ -189,7 +200,9 @@ func SendBlobSidecarByRoot(
 	ctx context.Context, tor blockchain.TemporalOracle, p2pApi p2p.P2P, pid peer.ID,
 	ctxMap ContextByteVersions, req *p2ptypes.BlobSidecarsByRootReq, slot primitives.Slot,
 ) ([]blocks.ROBlob, error) {
-	if uint64(len(*req)) > params.BeaconConfig().MaxRequestBlobSidecars {
+	beaconConfig := params.BeaconConfig()
+
+	if uint64(len(*req)) > beaconConfig.MaxRequestBlobSidecars {
 		return nil, errors.Wrapf(p2ptypes.ErrMaxBlobReqExceeded, "length=%d", len(*req))
 	}
 
@@ -204,8 +217,18 @@ func SendBlobSidecarByRoot(
 	}
 	defer closeStream(stream, log)
 
-	max := params.BeaconConfig().MaxRequestBlobSidecars
-	maxBlobCount := params.BeaconConfig().MaxBlobsPerBlock(slot)
+	max := beaconConfig.MaxRequestBlobSidecars
+	epoch := slots.ToEpoch(slot)
+
+	if epoch >= beaconConfig.ElectraForkEpoch {
+		max = beaconConfig.MaxRequestBlobSidecarsElectra
+	}
+
+	if epoch >= beaconConfig.FuluForkEpoch {
+		max = beaconConfig.MaxRequestBlobSidecarsFulu
+	}
+
+	maxBlobCount := beaconConfig.MaxBlobsPerBlock(slot)
 	if max > uint64(len(*req)*maxBlobCount) {
 		max = uint64(len(*req) * maxBlobCount)
 	}
@@ -276,7 +299,7 @@ func SendDataColumnSidecarsByRootRequest(
 }
 
 // dataColumnValidatorFromRangeReq verifies that the slot of the data column sidecar is within the bounds of the request.
-func dataColumnValidatorFromRangeReq(req *pb.DataColumnSidecarsByRangeRequest) DataColumnResponseValidation {
+func dataColumnValidatorFromRangeReq(req *ethpb.DataColumnSidecarsByRangeRequest) DataColumnResponseValidation {
 	end := req.StartSlot + primitives.Slot(req.Count)
 
 	return func(sc blocks.RODataColumn) bool {
@@ -299,7 +322,7 @@ func dataColumnValidatorFromRangeReq(req *pb.DataColumnSidecarsByRangeRequest) D
 }
 
 // dataColumnIndexValidatorFromRangeReq verifies that the data column sidecar is requested in the request.
-func dataColumnIndexValidatorFromRangeReq(req *pb.DataColumnSidecarsByRangeRequest) DataColumnResponseValidation {
+func dataColumnIndexValidatorFromRangeReq(req *ethpb.DataColumnSidecarsByRangeRequest) DataColumnResponseValidation {
 	columnIds := make(map[uint64]bool)
 	for _, col := range req.Columns {
 		columnIds[col] = true
@@ -341,7 +364,7 @@ func SendDataColumnSidecarsByRangeRequest(
 	p2pApi p2p.P2P,
 	pid peer.ID,
 	ctxMap ContextByteVersions,
-	req *pb.DataColumnSidecarsByRangeRequest,
+	req *ethpb.DataColumnSidecarsByRangeRequest,
 ) ([]blocks.RODataColumn, error) {
 	topic, err := p2p.TopicFromMessage(p2p.DataColumnSidecarsByRangeName, slots.ToEpoch(tor.CurrentSlot()))
 	if err != nil {
@@ -444,12 +467,12 @@ func readChunkedDataColumnSideCar(
 		return nil, errors.Errorf("unrecognized fork digest %#x", ctxBytes)
 	}
 
-	// Check if we are on debeb.
+	// Check if we are on Fulu.
 	// Only deneb is supported at this time, because we lack a fork-spanning interface/union type for blobs.
-	if msgVersion < version.Electra {
+	if msgVersion < version.Fulu {
 		return nil, errors.Errorf(
 			"unexpected context bytes for DataColumnSidecar, ctx=%#x, msgVersion=%v, minimalSupportedVersion=%v",
-			ctxBytes, version.String(msgVersion), version.String(version.Electra),
+			ctxBytes, version.String(msgVersion), version.String(version.Fulu),
 		)
 	}
 
@@ -672,8 +695,7 @@ func readChunkedBlobSidecar(stream network.Stream, encoding encoder.NetworkEncod
 	if !found {
 		return b, errors.Wrapf(errBlobUnmarshal, fmt.Sprintf("unrecognized fork digest %#x", ctxb))
 	}
-	// Only deneb and electra are supported at this time, because we lack a fork-spanning interface/union type for blobs.
-	// In electra, there's no changes to blob type.
+	// Only Deneb and beyond are supported at this time, because we lack a fork-spanning interface/union type for blobs.
 	if v < version.Deneb {
 		return b, fmt.Errorf("unexpected context bytes for BlobSidecar, ctx=%#x, v=%s", ctxb, version.String(v))
 	}

@@ -1473,7 +1473,7 @@ func createAndConnectPeer(
 }
 
 func defaultMockChain(t *testing.T, currentSlot uint64) (*mock.ChainService, *startup.Clock) {
-	de := params.BeaconConfig().ElectraForkEpoch
+	de := params.BeaconConfig().FuluForkEpoch
 	df, err := forks.Fork(de)
 	require.NoError(t, err)
 	denebBuffer := params.BeaconConfig().MinEpochsForBlobsSidecarsRequest + 1000
@@ -1712,7 +1712,7 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 		// ------
 
 		// Fork epochs.
-		electraForkEpoch primitives.Epoch
+		fuluForkEpoch primitives.Epoch
 
 		// Current slot.
 		currentSlot uint64
@@ -1740,39 +1740,39 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 		isError            bool
 	}{
 		{
-			name:             "Electra fork epoch is set to far futur epoch",
-			electraForkEpoch: primitives.Epoch(math.MaxUint64),
+			name:          "Fulu fork epoch is set to far futur epoch",
+			fuluForkEpoch: primitives.Epoch(math.MaxUint64),
 			blocksParams: []blockParams{
-				{slot: 1, hasBlobs: true}, // Before Electra fork epoch
-				{slot: 2, hasBlobs: true}, // Before Electra fork epoch
-				{slot: 3, hasBlobs: true}, // Before Electra fork epoch
+				{slot: 1, hasBlobs: true}, // Before Fulu fork epoch
+				{slot: 2, hasBlobs: true}, // Before Fulu fork epoch
+				{slot: 3, hasBlobs: true}, // Before Fulu fork epoch
 			},
 			batchSize:          32,
 			addedRODataColumns: [][]int{nil, nil, nil},
 			isError:            false,
 		},
 		{
-			name:             "All blocks are before Electra fork epoch",
-			electraForkEpoch: 1,
-			currentSlot:      40,
+			name:          "All blocks are before Fulu fork epoch",
+			fuluForkEpoch: 1,
+			currentSlot:   40,
 			blocksParams: []blockParams{
-				{slot: 25, hasBlobs: false}, // Before Electra fork epoch
-				{slot: 26, hasBlobs: false}, // Before Electra fork epoch
-				{slot: 27, hasBlobs: false}, // Before Electra fork epoch
-				{slot: 28, hasBlobs: false}, // Before Electra fork epoch
+				{slot: 25, hasBlobs: false}, // Before Fulu fork epoch
+				{slot: 26, hasBlobs: false}, // Before Fulu fork epoch
+				{slot: 27, hasBlobs: false}, // Before Fulu fork epoch
+				{slot: 28, hasBlobs: false}, // Before Fulu fork epoch
 			},
 			batchSize:          32,
 			addedRODataColumns: [][]int{nil, nil, nil, nil},
 			isError:            false,
 		},
 		{
-			name:             "All blocks with commitments are before Electra fork epoch",
-			electraForkEpoch: 1,
-			currentSlot:      40,
+			name:          "All blocks with commitments are before Fulu fork epoch",
+			fuluForkEpoch: 1,
+			currentSlot:   40,
 			blocksParams: []blockParams{
-				{slot: 25, hasBlobs: false}, // Before Electra fork epoch
-				{slot: 26, hasBlobs: true},  // Before Electra fork epoch
-				{slot: 27, hasBlobs: true},  // Before Electra fork epoch
+				{slot: 25, hasBlobs: false}, // Before Fulu fork epoch
+				{slot: 26, hasBlobs: true},  // Before Fulu fork epoch
+				{slot: 27, hasBlobs: true},  // Before Fulu fork epoch
 				{slot: 32, hasBlobs: false},
 				{slot: 33, hasBlobs: false},
 			},
@@ -1780,13 +1780,13 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 			addedRODataColumns: [][]int{nil, nil, nil, nil, nil},
 		},
 		{
-			name:             "Some blocks with blobs but without any missing data columns",
-			electraForkEpoch: 1,
-			currentSlot:      40,
+			name:          "Some blocks with blobs but without any missing data columns",
+			fuluForkEpoch: 1,
+			currentSlot:   40,
 			blocksParams: []blockParams{
-				{slot: 25, hasBlobs: false}, // Before Electra fork epoch
-				{slot: 26, hasBlobs: true},  // Before Electra fork epoch
-				{slot: 27, hasBlobs: true},  // Before Electra fork epoch
+				{slot: 25, hasBlobs: false}, // Before Fulu fork epoch
+				{slot: 26, hasBlobs: true},  // Before Fulu fork epoch
+				{slot: 27, hasBlobs: true},  // Before Fulu fork epoch
 				{slot: 32, hasBlobs: false},
 				{slot: 33, hasBlobs: true},
 			},
@@ -1802,12 +1802,12 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 			isError:            false,
 		},
 		{
-			name:             "Some blocks with blobs with missing data columns - one round needed",
-			electraForkEpoch: 1,
-			currentSlot:      40,
+			name:          "Some blocks with blobs with missing data columns - one round needed",
+			fuluForkEpoch: 1,
+			currentSlot:   40,
 			blocksParams: []blockParams{
-				{slot: 25, hasBlobs: false}, // Before Electra fork epoch
-				{slot: 27, hasBlobs: true},  // Before Electra fork epoch
+				{slot: 25, hasBlobs: false}, // Before Fulu fork epoch
+				{slot: 27, hasBlobs: true},  // Before Fulu fork epoch
 				{slot: 32, hasBlobs: false},
 				{slot: 33, hasBlobs: true},
 				{slot: 34, hasBlobs: true},
@@ -1909,9 +1909,9 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 			isError: false,
 		},
 		{
-			name:             "Some blocks with blobs with missing data columns - partial responses",
-			electraForkEpoch: 1,
-			currentSlot:      40,
+			name:          "Some blocks with blobs with missing data columns - partial responses",
+			fuluForkEpoch: 1,
+			currentSlot:   40,
 			blocksParams: []blockParams{
 				{slot: 33, hasBlobs: true},
 				{slot: 34, hasBlobs: true},
@@ -1962,9 +1962,9 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 			},
 		},
 		{
-			name:             "Some blocks with blobs with missing data columns - first response is invalid",
-			electraForkEpoch: 1,
-			currentSlot:      40,
+			name:          "Some blocks with blobs with missing data columns - first response is invalid",
+			fuluForkEpoch: 1,
+			currentSlot:   40,
 			blocksParams: []blockParams{
 				{slot: 38, hasBlobs: true},
 			},
@@ -1996,7 +1996,7 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 		},
 		{
 			name:              "Some blocks with blobs with missing data columns - first response is empty",
-			electraForkEpoch:  1,
+			fuluForkEpoch:     1,
 			currentSlot:       40,
 			blocksParams:      []blockParams{{slot: 38, hasBlobs: true}},
 			storedDataColumns: []map[int]bool{{38: true, 102: true}},
@@ -2024,7 +2024,7 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 		},
 		{
 			name:              "Some blocks with blobs with missing data columns - no response at all",
-			electraForkEpoch:  1,
+			fuluForkEpoch:     1,
 			currentSlot:       40,
 			blocksParams:      []blockParams{{slot: 38, hasBlobs: true}},
 			storedDataColumns: []map[int]bool{{38: true, 102: true}},
@@ -2045,9 +2045,9 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 			isError:            true,
 		},
 		{
-			name:             "Some blocks with blobs with missing data columns - request has to be split",
-			electraForkEpoch: 1,
-			currentSlot:      40,
+			name:          "Some blocks with blobs with missing data columns - request has to be split",
+			fuluForkEpoch: 1,
+			currentSlot:   40,
 			blocksParams: []blockParams{
 				{slot: 32, hasBlobs: true}, {slot: 33, hasBlobs: true}, {slot: 34, hasBlobs: true}, {slot: 35, hasBlobs: true}, // 4
 				{slot: 36, hasBlobs: true}, {slot: 37, hasBlobs: true}, // 6
@@ -2163,8 +2163,8 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 				roBlocks[i] = roBlock
 			}
 
-			// Set the Electra fork epoch.
-			params.BeaconConfig().ElectraForkEpoch = tc.electraForkEpoch
+			// Set the Fulu fork epoch.
+			params.BeaconConfig().FuluForkEpoch = tc.fuluForkEpoch
 
 			// Save the blocks in the store.
 			storage := make(map[[fieldparams.RootLength]byte][]int)
@@ -2223,7 +2223,7 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 			// Create the block fetcher.
 			blocksFetcher := newBlocksFetcher(ctx, &blocksFetcherConfig{
 				clock:  clock,
-				ctxMap: map[[4]byte]int{{245, 165, 253, 66}: version.Electra},
+				ctxMap: map[[4]byte]int{{245, 165, 253, 66}: version.Fulu},
 				p2p:    p2pSvc,
 				bs:     blobStorageSummarizer,
 				cv:     newDataColumnsVerifierFromInitializer(ini),

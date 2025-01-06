@@ -228,10 +228,10 @@ func (s *Service) RefreshPersistentSubnets() {
 
 	isBitSUpToDate := bytes.Equal(bitS, inRecordBitS) && bytes.Equal(bitS, currentBitSInMetadata)
 
-	// Compare current epoch with the Electra fork epoch.
-	electraForkEpoch := params.BeaconConfig().ElectraForkEpoch
+	// Compare current epoch with the Fulu fork epoch.
+	fuluForkEpoch := params.BeaconConfig().FuluForkEpoch
 
-	if currentEpoch < electraForkEpoch {
+	if currentEpoch < fuluForkEpoch {
 		// Altair behaviour.
 		if metadataVersion == version.Altair && isBitVUpToDate && isBitSUpToDate {
 			// Nothing to do, return early.
@@ -495,7 +495,7 @@ func (s *Service) createLocalNode(
 		localNode.Set(quicEntry)
 	}
 
-	if params.PeerDASEnabled() {
+	if params.FuluEnabled() {
 		custodySubnetCount := peerdas.CustodySubnetCount()
 		localNode.Set(peerdas.Csc(custodySubnetCount))
 	}

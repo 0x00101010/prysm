@@ -55,7 +55,7 @@ func HigherEqualThanAltairVersionAndEpoch(s state.BeaconState, e primitives.Epoc
 
 // PeerDASIsActive checks whether peerDAS is active at the provided slot.
 func PeerDASIsActive(slot primitives.Slot) bool {
-	return params.PeerDASEnabled() && slots.ToEpoch(slot) >= params.BeaconConfig().ElectraForkEpoch
+	return params.FuluEnabled() && slots.ToEpoch(slot) >= params.BeaconConfig().FuluForkEpoch
 }
 
 // CanUpgradeToAltair returns true if the input `slot` can upgrade to Altair.
@@ -102,6 +102,15 @@ func CanUpgradeToElectra(slot primitives.Slot) bool {
 	epochStart := slots.IsEpochStart(slot)
 	electraEpoch := slots.ToEpoch(slot) == params.BeaconConfig().ElectraForkEpoch
 	return epochStart && electraEpoch
+}
+
+// CanUpgradeToFulu returns true if the input `slot` can upgrade to Fulu.
+// Spec code:
+// If state.slot % SLOTS_PER_EPOCH == 0 and compute_epoch_at_slot(state.slot) == FULU_FORK_EPOCH
+func CanUpgradeToFulu(slot primitives.Slot) bool {
+	epochStart := slots.IsEpochStart(slot)
+	fuluEpoch := slots.ToEpoch(slot) == params.BeaconConfig().FuluForkEpoch
+	return epochStart && fuluEpoch
 }
 
 // CanProcessEpoch checks the eligibility to process epoch.

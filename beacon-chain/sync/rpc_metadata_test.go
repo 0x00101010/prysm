@@ -101,7 +101,7 @@ func TestMetadataRPCHandler_SendMetadataRequest(t *testing.T) {
 	params.SetupTestConfigCleanup(t)
 	beaconChainConfig := params.BeaconConfig().Copy()
 	beaconChainConfig.AltairForkEpoch = 5
-	beaconChainConfig.ElectraForkEpoch = 15
+	beaconChainConfig.FuluForkEpoch = 15
 	params.OverrideBeaconConfig(beaconChainConfig)
 	params.BeaconConfig().InitializeForkSchedule()
 
@@ -144,7 +144,7 @@ func TestMetadataRPCHandler_SendMetadataRequest(t *testing.T) {
 			}),
 		},
 		{
-			name:                    "Phase0-Electra",
+			name:                    "Phase0-Fulu",
 			topic:                   p2p.RPCMetaDataTopicV1,
 			epochsSinceGenesisPeer1: 0,
 			epochsSinceGenesisPeer2: 15,
@@ -191,7 +191,7 @@ func TestMetadataRPCHandler_SendMetadataRequest(t *testing.T) {
 			}),
 		},
 		{
-			name:                    "Altair-Electra",
+			name:                    "Altair-Fulu",
 			topic:                   p2p.RPCMetaDataTopicV2,
 			epochsSinceGenesisPeer1: 5,
 			epochsSinceGenesisPeer2: 15,
@@ -208,7 +208,7 @@ func TestMetadataRPCHandler_SendMetadataRequest(t *testing.T) {
 			}),
 		},
 		{
-			name:                    "Electra-Phase0",
+			name:                    "Fulu-Phase0",
 			topic:                   p2p.RPCMetaDataTopicV3,
 			epochsSinceGenesisPeer1: 15,
 			epochsSinceGenesisPeer2: 0,
@@ -224,7 +224,7 @@ func TestMetadataRPCHandler_SendMetadataRequest(t *testing.T) {
 			}),
 		},
 		{
-			name:                    "Electra-Altair",
+			name:                    "Fulu-Altair",
 			topic:                   p2p.RPCMetaDataTopicV3,
 			epochsSinceGenesisPeer1: 15,
 			epochsSinceGenesisPeer2: 5,
@@ -241,7 +241,7 @@ func TestMetadataRPCHandler_SendMetadataRequest(t *testing.T) {
 			}),
 		},
 		{
-			name:                    "Electra-Electra",
+			name:                    "Fulu-Fulu",
 			topic:                   p2p.RPCMetaDataTopicV3,
 			epochsSinceGenesisPeer1: 15,
 			epochsSinceGenesisPeer2: 15,

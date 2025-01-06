@@ -78,7 +78,7 @@ func privKey(cfg *Config) (*ecdsa.PrivateKey, error) {
 	}
 
 	// If the StaticPeerID flag is not set and if peerDAS is not enabled, return the private key.
-	if !(cfg.StaticPeerID || params.PeerDASEnabled()) {
+	if !(cfg.StaticPeerID || params.FuluEnabled()) {
 		return ecdsaprysm.ConvertFromInterfacePrivKey(priv)
 	}
 

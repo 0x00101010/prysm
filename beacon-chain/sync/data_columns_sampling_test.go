@@ -199,7 +199,7 @@ func setupDataColumnSamplerTest(t *testing.T, blobCount uint64) (*dataSamplerTes
 		ctx:                context.Background(),
 		p2pSvc:             p2pSvc,
 		peers:              []*p2ptest.TestP2P{},
-		ctxMap:             map[[4]byte]int{{245, 165, 253, 66}: version.Electra},
+		ctxMap:             map[[4]byte]int{{245, 165, 253, 66}: version.Fulu},
 		chainSvc:           chainSvc,
 		blockProcessedData: blockProcessedData,
 		blobs:              blobs,

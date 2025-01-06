@@ -179,20 +179,20 @@ func (s *Service) processFetchedDataRegSync(
 		return
 	}
 
-	// Compute the first electra slot.
-	firstElectraSlot, err := slots.EpochStart(params.BeaconConfig().ElectraForkEpoch)
+	// Compute the first Fulu slot.
+	firstFuluSlot, err := slots.EpochStart(params.BeaconConfig().FuluForkEpoch)
 	if err != nil {
-		firstElectraSlot = math.MaxUint64
+		firstFuluSlot = math.MaxUint64
 	}
 
-	// Find the first block with a slot greater than or equal to the first electra slot.
+	// Find the first block with a slot greater than or equal to the first Fulu slot.
 	// (Blocks are sorted by slot)
-	firstElectraIndex := sort.Search(len(bwb), func(i int) bool {
-		return bwb[i].Block.Block().Slot() >= firstElectraSlot
+	firstFuluIndex := sort.Search(len(bwb), func(i int) bool {
+		return bwb[i].Block.Block().Slot() >= firstFuluSlot
 	})
 
-	preElectraBwbs := bwb[:firstElectraIndex]
-	postElectraBwbs := bwb[firstElectraIndex:]
+	preFuluBwbs := bwb[:firstFuluIndex]
+	postFuluBwbs := bwb[firstFuluIndex:]
 
 	blobBatchVerifier := verification.NewBlobBatchVerifier(s.newBlobVerifier, verification.InitsyncBlobSidecarRequirements)
 	lazilyPersistentStore := das.NewLazilyPersistentStore(s.cfg.BlobStorage, blobBatchVerifier)
@@ -200,11 +200,11 @@ func (s *Service) processFetchedDataRegSync(
 	log := log.WithField("firstSlot", data.bwb[0].Block.Block().Slot())
 
 	logPre := log
-	if len(preElectraBwbs) > 0 {
-		logPre = logPre.WithField("firstUnprocessed", preElectraBwbs[0].Block.Block().Slot())
+	if len(preFuluBwbs) > 0 {
+		logPre = logPre.WithField("firstUnprocessed", preFuluBwbs[0].Block.Block().Slot())
 	}
 
-	for _, b := range preElectraBwbs {
+	for _, b := range preFuluBwbs {
 		log := logPre.WithFields(syncFields(b.Block))
 
 		if err := lazilyPersistentStore.Persist(s.clock.CurrentSlot(), b.Blobs...); err != nil {
@@ -227,13 +227,13 @@ func (s *Service) processFetchedDataRegSync(
 	}
 
 	logPost := log
-	if len(postElectraBwbs) > 0 {
-		logPost = log.WithField("firstUnprocessed", postElectraBwbs[0].Block.Block().Slot())
+	if len(postFuluBwbs) > 0 {
+		logPost = log.WithField("firstUnprocessed", postFuluBwbs[0].Block.Block().Slot())
 	}
 
 	lazilyPersistentStoreColumn := das.NewLazilyPersistentStoreColumn(s.cfg.BlobStorage)
 
-	for _, b := range postElectraBwbs {
+	for _, b := range postFuluBwbs {
 		log := logPost.WithFields(syncFields(b.Block))
 
 		if err := lazilyPersistentStoreColumn.PersistColumns(s.clock.CurrentSlot(), b.Columns...); err != nil {
@@ -375,7 +375,7 @@ func validUnprocessed(ctx context.Context, bwb []blocks.BlockWithROBlobs, headSl
 	return bwb[nonProcessedIdx:], nil
 }
 
-func (s *Service) processPreElectraBatchedBlocks(
+func (s *Service) processPreFuluBatchedBlocks(
 	ctx context.Context,
 	bwbs []blocks.BlockWithROBlobs,
 	bFunc batchBlockReceiverFn,
@@ -402,13 +402,13 @@ func (s *Service) processPreElectraBatchedBlocks(
 	}
 
 	if err := bFunc(ctx, blocks.BlockWithROBlobsSlice(bwbs).ROBlocks(), persistentStore); err != nil {
-		return errors.Wrap(err, "process pre-electra blocks")
+		return errors.Wrap(err, "process pre-Fulu blocks")
 	}
 
 	return nil
 }
 
-func (s *Service) processPostElectraBatchedBlocks(
+func (s *Service) processPostFuluBatchedBlocks(
 	ctx context.Context,
 	bwbs []blocks.BlockWithROBlobs,
 	bFunc batchBlockReceiverFn,
@@ -434,7 +434,7 @@ func (s *Service) processPostElectraBatchedBlocks(
 	}
 
 	if err := bFunc(ctx, blocks.BlockWithROBlobsSlice(bwbs).ROBlocks(), persistentStoreColumn); err != nil {
-		return errors.Wrap(err, "process post-electra blocks")
+		return errors.Wrap(err, "process post-Fulu blocks")
 	}
 
 	return nil
@@ -467,26 +467,26 @@ func (s *Service) processBatchedBlocks(
 			errParentDoesNotExist, firstBlock.Block().ParentRoot(), firstBlock.Block().Slot())
 	}
 
-	// Compute the first electra slot.
-	firstElectraSlot, err := slots.EpochStart(params.BeaconConfig().ElectraForkEpoch)
+	// Compute the first Fulu slot.
+	firstFuluSlot, err := slots.EpochStart(params.BeaconConfig().FuluForkEpoch)
 	if err != nil {
-		firstElectraSlot = math.MaxUint64
+		firstFuluSlot = math.MaxUint64
 	}
 
-	// Find the first block with a slot greater than or equal to the first electra slot.
+	// Find the first block with a slot greater than or equal to the first Fulu slot.
 	// (Blocks are sorted by slot)
-	firstElectraIndex := sort.Search(len(bwbs), func(i int) bool {
-		return bwbs[i].Block.Block().Slot() >= firstElectraSlot
+	firstFuluIndex := sort.Search(len(bwbs), func(i int) bool {
+		return bwbs[i].Block.Block().Slot() >= firstFuluSlot
 	})
 
-	preElectraBwbs, postElectraBwbs := bwbs[:firstElectraIndex], bwbs[firstElectraIndex:]
+	preFuluBwbs, postFuluBwbs := bwbs[:firstFuluIndex], bwbs[firstFuluIndex:]
 
-	if err := s.processPreElectraBatchedBlocks(ctx, preElectraBwbs, bFunc, genesis, firstBlock); err != nil {
-		return errors.Wrap(err, "process pre-electra blocks")
+	if err := s.processPreFuluBatchedBlocks(ctx, preFuluBwbs, bFunc, genesis, firstBlock); err != nil {
+		return errors.Wrap(err, "process pre-Fulu blocks")
 	}
 
-	if err := s.processPostElectraBatchedBlocks(ctx, postElectraBwbs, bFunc, genesis, firstBlock); err != nil {
-		return errors.Wrap(err, "process post-electra blocks")
+	if err := s.processPostFuluBatchedBlocks(ctx, postFuluBwbs, bFunc, genesis, firstBlock); err != nil {
+		return errors.Wrap(err, "process post-Fulu blocks")
 	}
 
 	return nil

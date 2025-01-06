@@ -135,9 +135,15 @@ func TestStartDiscV5_DiscoverAllPeers(t *testing.T) {
 
 func TestCreateLocalNode(t *testing.T) {
 	params.SetupTestConfigCleanup(t)
-	cfg := params.BeaconConfig()
-	cfg.ElectraForkEpoch = 1
-	params.OverrideBeaconConfig(cfg)
+
+	// Set the fulu fork epoch to something other than the far future epoch.
+	initFuluForkEpoch := params.BeaconConfig().FuluForkEpoch
+	params.BeaconConfig().FuluForkEpoch = 42
+
+	defer func() {
+		params.BeaconConfig().FuluForkEpoch = initFuluForkEpoch
+	}()
+
 	testCases := []struct {
 		name          string
 		cfg           *Config
@@ -169,6 +175,7 @@ func TestCreateLocalNode(t *testing.T) {
 			expectedError: false,
 		},
 	}
+
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			// Define ports.
@@ -626,8 +633,8 @@ func TestRefreshPersistentSubnets(t *testing.T) {
 	defer cache.SyncSubnetIDs.EmptyAllCaches()
 
 	const (
-		altairForkEpoch  = 5
-		electraForkEpoch = 10
+		altairForkEpoch = 5
+		fuluForkEpoch   = 10
 	)
 
 	custodySubnetCount := params.BeaconConfig().CustodyRequirement
@@ -636,7 +643,7 @@ func TestRefreshPersistentSubnets(t *testing.T) {
 	defaultCfg := params.BeaconConfig()
 	cfg := defaultCfg.Copy()
 	cfg.AltairForkEpoch = altairForkEpoch
-	cfg.ElectraForkEpoch = electraForkEpoch
+	cfg.FuluForkEpoch = fuluForkEpoch
 	params.OverrideBeaconConfig(cfg)
 
 	// Compute the number of seconds per epoch.
@@ -706,8 +713,8 @@ func TestRefreshPersistentSubnets(t *testing.T) {
 			},
 		},
 		{
-			name:              "PeerDAS",
-			epochSinceGenesis: electraForkEpoch,
+			name:              "Fulu",
+			epochSinceGenesis: fuluForkEpoch,
 			checks: []check{
 				{
 					pingCount:              0,
