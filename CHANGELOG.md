@@ -18,8 +18,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Add field param placeholder for Electra blob target and max to pass spec tests.
 - Add EIP-7691: Blob throughput increase.
 - SSZ files generation: Remove the `// Hash: ...` header.
+- DB optimization for saving light client bootstraps (save unique sync committees only).
 - Trace IDONTWANT Messages in Pubsub.
 - Add Fulu fork boilerplate.
+- Separate type for unaggregated network attestations. [PR](https://github.com/prysmaticlabs/prysm/pull/14659)
+- Update spec tests to v1.5.0-beta.0.
 
 ### Changed
 
@@ -39,6 +42,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Update our `go-libp2p-pubsub` dependency.
 - Re-organize the content of files to ease the creation of a new fork boilerplate.
 - Fixed Metadata errors for peers connected via QUIC.
+- Process light client finality updates only for new finalized epochs instead of doing it for every block.
+- Update blobs by rpc topics from V2 to V1.
+- Updated geth to 1.14 ~
+- E2e tests start from bellatrix
 
 ### Deprecated
 
@@ -47,11 +54,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - Cleanup ProcessSlashings method to remove unnecessary argument.
 - Remove `/proto/eth/v2` directory. [PR](https://github.com/prysmaticlabs/prysm/pull/14765)
+- Remove `/memsize/` pprof endpoint as it will no longer be supported in go 1.23, geth also removed in https://github.com/ethereum/go-ethereum/commit/e4675771eda550e7eeb63a8884816982c1980644
 
 ### Fixed
 
 - Added check to prevent nil pointer deference or out of bounds array access when validating the BLSToExecutionChange on an impossibly nil validator.
 - EIP-7691: Ensure new blobs subnets are subscribed on epoch in advance.
+- Fix kzg commitment inclusion proof depth minimal value.
 
 ### Security
 
