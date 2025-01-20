@@ -166,8 +166,8 @@ func addIfForkSet(
 	return evals
 }
 
-func scenarioEvals() []types.Evaluator {
-	return []types.Evaluator{
+func scenarioEvals(cfg *params.BeaconChainConfig) []types.Evaluator {
+	evals := []types.Evaluator{
 		ev.PeersConnect,
 		ev.HealthzCheck,
 		ev.MetricsCheck,
@@ -177,18 +177,19 @@ func scenarioEvals() []types.Evaluator {
 		ev.ProposeVoluntaryExit,
 		ev.ValidatorsHaveExited,
 		ev.ColdStateCheckpoint,
-		ev.AltairForkTransition,
-		ev.BellatrixForkTransition,
-		ev.CapellaForkTransition,
-		ev.DenebForkTransition,
 		ev.FinishedSyncing,
 		ev.AllNodesHaveSameHead,
 		ev.ValidatorSyncParticipation,
 	}
+	evals = addIfForkSet(evals, cfg.AltairForkEpoch, ev.AltairForkTransition)
+	evals = addIfForkSet(evals, cfg.BellatrixForkEpoch, ev.BellatrixForkTransition)
+	evals = addIfForkSet(evals, cfg.CapellaForkEpoch, ev.CapellaForkTransition)
+	evals = addIfForkSet(evals, cfg.DenebForkEpoch, ev.DenebForkTransition)
+	return evals
 }
 
-func scenarioEvalsMulti() []types.Evaluator {
-	return []types.Evaluator{
+func scenarioEvalsMulti(cfg *params.BeaconChainConfig) []types.Evaluator {
+	evals := []types.Evaluator{
 		ev.PeersConnect,
 		ev.HealthzCheck,
 		ev.MetricsCheck,
@@ -197,11 +198,12 @@ func scenarioEvalsMulti() []types.Evaluator {
 		ev.ProposeVoluntaryExit,
 		ev.ValidatorsHaveExited,
 		ev.ColdStateCheckpoint,
-		ev.AltairForkTransition,
-		ev.BellatrixForkTransition,
-		ev.CapellaForkTransition,
-		ev.DenebForkTransition,
 		ev.FinishedSyncing,
 		ev.AllNodesHaveSameHead,
 	}
+	evals = addIfForkSet(evals, cfg.AltairForkEpoch, ev.AltairForkTransition)
+	evals = addIfForkSet(evals, cfg.BellatrixForkEpoch, ev.BellatrixForkTransition)
+	evals = addIfForkSet(evals, cfg.CapellaForkEpoch, ev.CapellaForkTransition)
+	evals = addIfForkSet(evals, cfg.DenebForkEpoch, ev.DenebForkTransition)
+	return evals
 }
