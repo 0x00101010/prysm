@@ -67,6 +67,11 @@ func (s *Service) reconstructAndBroadcastBlobs(ctx context.Context, block interf
 		return
 	}
 
+	// TODO: Apply the equivalent strategy for data columns.
+	if block.Version() >= version.Fulu {
+		return
+	}
+
 	startTime, err := slots.ToTime(uint64(s.cfg.chain.GenesisTime().Unix()), block.Block().Slot())
 	if err != nil {
 		log.WithError(err).Error("Failed to convert slot to time")
