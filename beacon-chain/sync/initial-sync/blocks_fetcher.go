@@ -668,27 +668,14 @@ func buildBwbSlices(wrappedBwbsMissingColumns *bwbsMissingColumns, batchsize int
 
 	previousBlockSlot := firstROBlock.Block().Slot()
 	previousStartIndex := 0
+	previousStartBlockSlot := previousBlockSlot
+	batchSizeSlot := primitives.Slot(batchsize)
 
 	const offset = 1
 
 	result := make([]bwbSlice, 0, 1)
 	for currentIndexWithoutOffest, bwb := range bwbs[offset:] {
 		currentIndex := currentIndexWithoutOffest + offset
-
-		// Check if the batch size is reached.
-		if currentIndex-previousStartIndex == batchsize {
-			// Append the slice to the result.
-			slice := bwbSlice{
-				start:       previousStartIndex,
-				end:         currentIndex - 1,
-				dataColumns: previousMissingDataColumns,
-			}
-
-			result = append(result, slice)
-
-			previousStartIndex = currentIndex
-			continue
-		}
 
 		// Extract the ROBlock from the blockWithROBlob.
 		currentROBlock := bwb.Block
@@ -699,8 +686,8 @@ func buildBwbSlices(wrappedBwbsMissingColumns *bwbsMissingColumns, batchsize int
 		// Extract the slot from the block.
 		currentBlockSlot := currentBlock.Slot()
 
-		if currentBlockSlot < previousBlockSlot {
-			return nil, errors.New("blocks are not sorted by slot")
+		if currentBlockSlot <= previousBlockSlot {
+			return nil, errors.Errorf("blocks are not strictly sorted by slot. Previous block slot: %d, current block slot: %d", previousBlockSlot, currentBlockSlot)
 		}
 
 		// Extract KZG commitments count from the current block body
@@ -730,8 +717,10 @@ func buildBwbSlices(wrappedBwbsMissingColumns *bwbsMissingColumns, batchsize int
 		// Compute if the missing data columns differ.
 		missingDataColumnsDiffer := uint64MapDiffer(previousMissingDataColumns, missingDataColumns)
 
-		// Check if there is a gap or if the missing data columns differ.
-		if missingDataColumnsDiffer {
+		// Compute if the batch size is reached.
+		batchSizeReached := currentBlockSlot-previousStartBlockSlot >= batchSizeSlot
+
+		if missingDataColumnsDiffer || batchSizeReached {
 			// Append the slice to the result.
 			slice := bwbSlice{
 				start:       previousStartIndex,
@@ -742,6 +731,7 @@ func buildBwbSlices(wrappedBwbsMissingColumns *bwbsMissingColumns, batchsize int
 			result = append(result, slice)
 
 			previousStartIndex = currentIndex
+			previousStartBlockSlot = currentBlockSlot
 			previousMissingDataColumns = missingDataColumns
 		}
 
@@ -884,6 +874,9 @@ func computeMissingDataColumnsCount(missingColumnsByRoot map[[fieldparams.RootLe
 	return count
 }
 
+// fetchBwbSliceFromPeers requests data columns by range to relevant peers, then mutates
+// - `wrappedBwbsMissingColumns.bwbs` by adding the fetched data columns,
+// - `wrappedBwbsMissingColumns.missingColumnsByRoot` by removing the fetched data columns.
 func (f *blocksFetcher) fetchBwbSliceFromPeers(
 	ctx context.Context,
 	identifier int,
@@ -947,7 +940,6 @@ func (f *blocksFetcher) fetchBwbSliceFromPeers(
 		slices.Sort[[]uint64](dataColumnsToFetch)
 
 		// Build the request.
-
 		request := &p2ppb.DataColumnSidecarsByRangeRequest{
 			StartSlot: startSlot,
 			Count:     blockCount,
@@ -1193,8 +1185,8 @@ func (f *blocksFetcher) waitForPeersForDataColumns(
 	return dataColumnsByAdmissiblePeer, nil
 }
 
-// processDataColumns mutates `bwbs` argument by adding the data column,
-// and mutates `missingColumnsByRoot` by removing the data column if the
+// processDataColumns mutates `wrappedBwbsMissingColumns.bwbs` argument by adding the data column,
+// and mutates `wrappedBwbsMissingColumns.missingColumnsByRoot` by removing the data column if the
 // data column passes all the check.
 func (f *blocksFetcher) processDataColumns(
 	wrappedBwbsMissingColumns *bwbsMissingColumns,
@@ -1283,8 +1275,8 @@ func (f *blocksFetcher) processDataColumns(
 }
 
 // fetchDataColumnsFromPeer sends `request` to `peer`, then mutates:
-// - `bwbs` by adding the fetched data columns,
-// - `missingColumnsByRoot` by removing the fetched data columns.
+// - `wrappedBwbsMissingColumns.bwbs` by adding the fetched data columns,
+// - `wrappedBwbsMissingColumns.missingColumnsByRoot` by removing the fetched data columns.
 func (f *blocksFetcher) fetchDataColumnFromPeer(
 	ctx context.Context,
 	identifier int,
