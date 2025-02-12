@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/core/peerdas"
 	coreTime "github.com/prysmaticlabs/prysm/v5/beacon-chain/core/time"
+	"github.com/prysmaticlabs/prysm/v5/beacon-chain/db/filesystem"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/execution"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/p2p/types"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/sync/verify"
@@ -17,7 +18,6 @@ import (
 	"github.com/prysmaticlabs/prysm/v5/config/params"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/blocks"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/interfaces"
-	"github.com/prysmaticlabs/prysm/v5/consensus-types/primitives"
 	eth "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
 	"github.com/prysmaticlabs/prysm/v5/runtime/logging"
 	"github.com/prysmaticlabs/prysm/v5/runtime/version"
@@ -276,13 +276,7 @@ func (s *Service) pendingBlobsRequestForBlock(root [32]byte, b interfaces.ReadOn
 	if len(cc) == 0 {
 		return nil, nil
 	}
-
-	blobIdentifiers, err := s.constructPendingBlobsRequest(root, len(cc), b.Block().Slot())
-	if err != nil {
-		return nil, errors.Wrap(err, "construct pending blobs request")
-	}
-
-	return blobIdentifiers, nil
+	return s.constructPendingBlobsRequest(root, len(cc))
 }
 
 // buildRequestsForMissingDataColumns looks at the data columns we should sample from and have via custody sampling
@@ -305,9 +299,14 @@ func (s *Service) buildRequestsForMissingDataColumns(root [32]byte, block interf
 	}
 
 	// Retrieve the columns we store for the root.
-	storedColumns, err := s.cfg.blobStorage.ColumnIndices(root)
-	if err != nil {
-		return nil, errors.Wrap(err, "column indices")
+	numberOfColumns := params.BeaconConfig().NumberOfColumns
+	summary := s.cfg.blobStorage.Summary(root)
+
+	storedColumns := make(map[uint64]bool, numberOfColumns)
+	for i := range numberOfColumns {
+		if summary.HasDataColumnIndex(i) {
+			storedColumns[i] = true
+		}
 	}
 
 	// Get our node ID.
@@ -346,25 +345,22 @@ func (s *Service) buildRequestsForMissingDataColumns(root [32]byte, block interf
 }
 
 // constructPendingBlobsRequest creates a request for BlobSidecars by root, considering blobs already in DB.
-func (s *Service) constructPendingBlobsRequest(root [32]byte, commitments int, slot primitives.Slot) (types.BlobSidecarsByRootReq, error) {
+func (s *Service) constructPendingBlobsRequest(root [32]byte, commitments int) (types.BlobSidecarsByRootReq, error) {
 	if commitments == 0 {
 		return nil, nil
 	}
-	stored, err := s.cfg.blobStorage.Indices(root, slot)
-	if err != nil {
-		return nil, errors.Wrap(err, "indices")
-	}
+	summary := s.cfg.blobStorage.Summary(root)
 
-	return requestsForMissingIndices(stored, commitments, root), nil
+	return requestsForMissingIndices(summary, commitments, root), nil
 }
 
 // requestsForMissingIndices constructs a slice of BlobIdentifiers that are missing from
 // local storage, based on a mapping that represents which indices are locally stored,
 // and the highest expected index.
-func requestsForMissingIndices(storedIndices []bool, commitments int, root [32]byte) []*eth.BlobIdentifier {
+func requestsForMissingIndices(stored filesystem.BlobStorageSummary, commitments int, root [32]byte) []*eth.BlobIdentifier {
 	var ids []*eth.BlobIdentifier
 	for i := uint64(0); i < uint64(commitments); i++ {
-		if !storedIndices[i] {
+		if !stored.HasIndex(i) {
 			ids = append(ids, &eth.BlobIdentifier{Index: i, BlockRoot: root[:]})
 		}
 	}

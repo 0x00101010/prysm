@@ -1106,7 +1106,7 @@ func TestCommitmentCountList(t *testing.T) {
 					bytesutil.ToBytes32([]byte("0")): {0, 1},
 					bytesutil.ToBytes32([]byte("1")): {0, 1, 2, 3, 4, 5},
 				}
-				return filesystem.NewMockBlobStorageSummarizer(t, onDisk)
+				return filesystem.NewMockBlobStorageSummarizer(t, onDisk, 0)
 			},
 			cc: []commitmentCount{
 				{slot: 0, count: 3, root: bytesutil.ToBytes32([]byte("0"))},
@@ -1123,7 +1123,7 @@ func TestCommitmentCountList(t *testing.T) {
 					bytesutil.ToBytes32([]byte("0")): {0, 1},
 					bytesutil.ToBytes32([]byte("2")): {0, 1, 2, 3, 4, 5},
 				}
-				return filesystem.NewMockBlobStorageSummarizer(t, onDisk)
+				return filesystem.NewMockBlobStorageSummarizer(t, onDisk, 0)
 			},
 			cc: []commitmentCount{
 				{slot: 0, count: 2, root: bytesutil.ToBytes32([]byte("0"))},
@@ -1140,7 +1140,7 @@ func TestCommitmentCountList(t *testing.T) {
 					bytesutil.ToBytes32([]byte("0")): {0, 1},
 					bytesutil.ToBytes32([]byte("2")): {0, 1, 2, 3, 4, 5},
 				}
-				return filesystem.NewMockBlobStorageSummarizer(t, onDisk)
+				return filesystem.NewMockBlobStorageSummarizer(t, onDisk, 0)
 			},
 			cc: []commitmentCount{
 				{slot: 0, count: 2, root: bytesutil.ToBytes32([]byte("0"))},
@@ -1159,7 +1159,7 @@ func TestCommitmentCountList(t *testing.T) {
 					bytesutil.ToBytes32([]byte("1")): {0, 1},
 					bytesutil.ToBytes32([]byte("2")): {0, 1, 2, 3, 4, 5},
 				}
-				return filesystem.NewMockBlobStorageSummarizer(t, onDisk)
+				return filesystem.NewMockBlobStorageSummarizer(t, onDisk, 0)
 			},
 			cc: []commitmentCount{
 				{slot: 0, count: 2, root: bytesutil.ToBytes32([]byte("0"))},
@@ -1264,7 +1264,7 @@ func TestVerifyAndPopulateBlobs(t *testing.T) {
 			r1: {0, 1},
 			r7: {0, 1, 2, 3, 4, 5},
 		}
-		bss := filesystem.NewMockBlobStorageSummarizer(t, onDisk)
+		bss := filesystem.NewMockBlobStorageSummarizer(t, onDisk, 0)
 		err := verifyAndPopulateBlobs(bwb, blobs, testReqFromResp(bwb), bss)
 		require.NoError(t, err)
 		require.Equal(t, 6, len(bwb[i1].Blobs))
@@ -2227,7 +2227,7 @@ func TestFetchDataColumnsFromPeers(t *testing.T) {
 				storage[root] = columnsSlice
 			}
 
-			blobStorageSummarizer := filesystem.NewMockBlobStorageSummarizer(t, storage)
+			blobStorageSummarizer := filesystem.NewMockBlobStorageSummarizer(t, storage, tc.fuluForkEpoch)
 
 			// Create a chain and a clock.
 			chain, clock := defaultMockChain(t, tc.currentSlot)

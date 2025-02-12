@@ -2,7 +2,6 @@ package das
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	errors "github.com/pkg/errors"
@@ -13,7 +12,6 @@ import (
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/primitives"
 	"github.com/prysmaticlabs/prysm/v5/runtime/version"
 	"github.com/prysmaticlabs/prysm/v5/time/slots"
-	log "github.com/sirupsen/logrus"
 )
 
 // LazilyPersistentStoreColumn is an implementation of AvailabilityStore to be used when batch syncing data columns.
@@ -95,18 +93,8 @@ func (s *LazilyPersistentStoreColumn) IsDataAvailable(
 	// Get the root of the block.
 	blockRoot := block.Root()
 
-	// Wait for the summarizer to be ready before proceeding.
-	summarizer, err := s.store.WaitForSummarizer(ctx)
-	if err != nil {
-		log.
-			WithField("root", fmt.Sprintf("%#x", blockRoot)).
-			WithError(err).
-			Debug("Failed to receive BlobStorageSummarizer within IsDataAvailable")
-	} else {
-		// Get the summary for the block, and set it in the cache entry.
-		summary := summarizer.Summary(blockRoot)
-		entry.setDiskSummary(summary)
-	}
+	// Set the disk summary for the block in the cache entry.
+	entry.setDiskSummary(s.store.Summary(blockRoot))
 
 	// Verify we have all the expected sidecars, and fail fast if any are missing or inconsistent.
 	// We don't try to salvage problematic batches because this indicates a misbehaving peer and we'd rather

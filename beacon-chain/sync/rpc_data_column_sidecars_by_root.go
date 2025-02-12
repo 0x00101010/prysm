@@ -168,7 +168,7 @@ func (s *Service) dataColumnSidecarByRootRPCHandler(ctx context.Context, msg int
 
 		// TODO: Differentiate between blobs and columns for our storage engine
 		// Retrieve the data column from the database.
-		dataColumnSidecar, err := s.cfg.blobStorage.GetColumn(requestedRoot, requestedIndex)
+		verifiedRODataColumn, err := s.cfg.blobStorage.GetColumn(requestedRoot, requestedIndex)
 
 		if err != nil && !db.IsNotFound(err) {
 			s.writeErrorResponseToStream(responseCodeServerError, types.ErrGeneric.Error(), stream)
@@ -184,7 +184,7 @@ func (s *Service) dataColumnSidecarByRootRPCHandler(ctx context.Context, msg int
 		// peers MAY respond with error code 3: ResourceUnavailable or not include the data column in the response.
 		// note: we are deviating from the spec to allow requests for data column that are before minimum_request_epoch,
 		// up to the beginning of the retention period.
-		if dataColumnSidecar.SignedBlockHeader.Header.Slot < minReqSlot {
+		if verifiedRODataColumn.SignedBlockHeader.Header.Slot < minReqSlot {
 			s.writeErrorResponseToStream(responseCodeResourceUnavailable, types.ErrDataColumnLTMinRequest.Error(), stream)
 			log.WithError(types.ErrDataColumnLTMinRequest).
 				Debugf("requested data column for block %#x before minimum_request_epoch", requestedColumnIdents[i].BlockRoot)
@@ -192,7 +192,7 @@ func (s *Service) dataColumnSidecarByRootRPCHandler(ctx context.Context, msg int
 		}
 
 		SetStreamWriteDeadline(stream, defaultWriteDuration)
-		if chunkErr := WriteDataColumnSidecarChunk(stream, s.cfg.chain, s.cfg.p2p.Encoding(), dataColumnSidecar); chunkErr != nil {
+		if chunkErr := WriteDataColumnSidecarChunk(stream, s.cfg.chain, s.cfg.p2p.Encoding(), verifiedRODataColumn.DataColumnSidecar); chunkErr != nil {
 			log.WithError(chunkErr).Debug("Could not send a chunked response")
 			s.writeErrorResponseToStream(responseCodeServerError, types.ErrGeneric.Error(), stream)
 			tracing.AnnotateError(span, chunkErr)

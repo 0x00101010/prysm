@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/core/transition"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/das"
-	"github.com/prysmaticlabs/prysm/v5/beacon-chain/db/filesystem"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/sync"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/verification"
 	"github.com/prysmaticlabs/prysm/v5/config/params"
@@ -73,14 +72,6 @@ func (s *Service) startBlocksQueue(ctx context.Context, highestSlot primitives.S
 		return nil, errors.Wrapf(err, "unable to initialize context version map using genesis validator root = %#x", vr)
 	}
 
-	summarizer, err := s.cfg.BlobStorage.WaitForSummarizer(ctx)
-	if err != nil {
-		// The summarizer is an optional optimization, we can continue without, only stop if there is a different error.
-		if !errors.Is(err, filesystem.ErrBlobStorageSummarizerUnavailable) {
-			return nil, err
-		}
-		summarizer = nil // This should already be nil, but we'll set it just to be safe.
-	}
 	cfg := &blocksQueueConfig{
 		p2p:                 s.cfg.P2P,
 		db:                  s.cfg.DB,
@@ -89,8 +80,7 @@ func (s *Service) startBlocksQueue(ctx context.Context, highestSlot primitives.S
 		ctxMap:              ctxMap,
 		highestExpectedSlot: highestSlot,
 		mode:                mode,
-		bs:                  summarizer,
-		bv:                  s.newBlobVerifier,
+		bs:                  s.cfg.BlobStorage,
 		cv:                  s.newDataColumnsVerifier,
 	}
 	queue := newBlocksQueue(ctx, cfg)

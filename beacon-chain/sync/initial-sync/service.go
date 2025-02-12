@@ -306,13 +306,10 @@ func missingBlobRequest(blk blocks.ROBlock, store *filesystem.BlobStorage) (p2pt
 	if len(cmts) == 0 {
 		return nil, nil
 	}
-	onDisk, err := store.Indices(r, blk.Block().Slot())
-	if err != nil {
-		return nil, errors.Wrapf(err, "error checking existing blobs for checkpoint sync block root %#x", r)
-	}
+	onDisk := store.Summary(r)
 	req := make(p2ptypes.BlobSidecarsByRootReq, 0, len(cmts))
 	for i := range cmts {
-		if onDisk[i] {
+		if onDisk.HasIndex(uint64(i)) {
 			continue
 		}
 		req = append(req, &eth.BlobIdentifier{BlockRoot: r[:], Index: uint64(i)})
@@ -341,9 +338,14 @@ func (s *Service) missingColumnRequest(roBlock blocks.ROBlock, store *filesystem
 	}
 
 	// Check which columns are already on disk.
-	storedColumns, err := store.ColumnIndices(blockRoot)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error checking existing blobs for checkpoint sync block root %#x", blockRoot)
+	numberOfColumns := params.BeaconConfig().NumberOfColumns
+	summary := store.Summary(blockRoot)
+
+	storedColumns := make([]bool, numberOfColumns)
+	for i := range numberOfColumns {
+		if summary.HasIndex(i) {
+			storedColumns[i] = true
+		}
 	}
 
 	// Get our node ID.

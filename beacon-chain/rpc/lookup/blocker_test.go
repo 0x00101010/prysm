@@ -300,6 +300,11 @@ func TestBlobsFromStoredDataColumns(t *testing.T) {
 	originalColumnsIndice := allDataColumnsIndice[:fieldparams.NumberOfColumns/2]
 	extendedColumnsIndice := allDataColumnsIndice[fieldparams.NumberOfColumns/2:]
 
+	params.SetupTestConfigCleanup(t)
+	cfg := params.BeaconConfig()
+	cfg.FuluForkEpoch = 0
+	params.OverrideBeaconConfig(cfg)
+
 	testCases := []struct {
 		errorReason           core.ErrorReason
 		isError               bool
@@ -416,9 +421,8 @@ func TestGetBlob(t *testing.T) {
 	db := testDB.SetupDB(t)
 	denebBlock, blobs := util.GenerateTestDenebBlockWithSidecar(t, [32]byte{}, 123, 4)
 	require.NoError(t, db.SaveBlock(context.Background(), denebBlock))
-	_, bs := filesystem.NewEphemeralBlobStorageWithFs(t)
-	testSidecars, err := verification.BlobSidecarSliceNoop(blobs)
-	require.NoError(t, err)
+	_, bs := filesystem.NewEphemeralBlobStorageAndFs(t)
+	testSidecars := verification.FakeVerifySliceForTest(t, blobs)
 	for i := range testSidecars {
 		require.NoError(t, bs.Save(testSidecars[i]))
 	}

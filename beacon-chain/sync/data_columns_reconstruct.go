@@ -72,12 +72,12 @@ func (s *Service) reconstructDataColumns(ctx context.Context, verifiedRODataColu
 	// Load the data columns sidecars.
 	dataColumnSideCars := make([]*ethpb.DataColumnSidecar, 0, storedColumnsCount)
 	for index := range storedDataColumns {
-		dataColumnSidecar, err := s.cfg.blobStorage.GetColumn(blockRoot, index)
+		verifiedRODataColumn, err := s.cfg.blobStorage.GetColumn(blockRoot, index)
 		if err != nil {
 			return errors.Wrap(err, "get column")
 		}
 
-		dataColumnSideCars = append(dataColumnSideCars, dataColumnSidecar)
+		dataColumnSideCars = append(dataColumnSideCars, verifiedRODataColumn.DataColumnSidecar)
 	}
 
 	// Recover cells and proofs.
@@ -223,7 +223,7 @@ func (s *Service) scheduleReconstructedDataColumnsBroadcast(
 			}
 
 			// Get the non received but reconstructed data column.
-			dataColumnSidecar, err := s.cfg.blobStorage.GetColumn(blockRoot, column)
+			verifiedRODataColumn, err := s.cfg.blobStorage.GetColumn(blockRoot, column)
 			if err != nil {
 				log.WithError(err).Error("Get column")
 				continue
@@ -232,7 +232,7 @@ func (s *Service) scheduleReconstructedDataColumnsBroadcast(
 			// Compute the subnet for this column.
 			subnet := column % params.BeaconConfig().DataColumnSidecarSubnetCount
 			// Broadcast the missing data column.
-			if err := s.cfg.p2p.BroadcastDataColumn(ctx, blockRoot, subnet, dataColumnSidecar); err != nil {
+			if err := s.cfg.p2p.BroadcastDataColumn(ctx, blockRoot, subnet, verifiedRODataColumn.DataColumnSidecar); err != nil {
 				log.WithError(err).Error("Broadcast data column")
 			}
 		}
