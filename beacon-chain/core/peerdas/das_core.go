@@ -1,7 +1,6 @@
 package peerdas
 
 import (
-	"context"
 	"encoding/binary"
 	"math"
 	"slices"
@@ -20,7 +19,6 @@ import (
 	"github.com/prysmaticlabs/prysm/v5/crypto/hash"
 	"github.com/prysmaticlabs/prysm/v5/encoding/bytesutil"
 	ethpb "github.com/prysmaticlabs/prysm/v5/proto/prysm/v1alpha1"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -107,57 +105,31 @@ func ComputeColumnsForCustodyGroup(custodyGroup uint64) ([]uint64, error) {
 
 // DataColumnSidecars computes the data column sidecars from the signed block and blobs.
 // https://github.com/ethereum/consensus-specs/blob/dev/specs/fulu/das-core.md#get_data_column_sidecars
-func DataColumnSidecars(signedBlock interfaces.ReadOnlySignedBeaconBlock, blobs []kzg.Blob) ([]*ethpb.DataColumnSidecar, error) {
-	startTime := time.Now()
-	blobsCount := len(blobs)
-	if blobsCount == 0 {
-		return nil, nil
-	}
+func DataColumnSidecars(signedBlock interfaces.ReadOnlySignedBeaconBlock, cellsAndProofs []kzg.CellsAndProofs) ([]*ethpb.DataColumnSidecar, error) {
+	start := time.Now()
 
-	// Get the signed block header.
-	signedBlockHeader, err := signedBlock.Header()
-	if err != nil {
-		return nil, errors.Wrap(err, "signed block header")
-	}
-
-	// Get the block body.
 	block := signedBlock.Block()
 	blockBody := block.Body()
-
-	// Get the blob KZG commitments.
 	blobKzgCommitments, err := blockBody.BlobKzgCommitments()
 	if err != nil {
 		return nil, errors.Wrap(err, "blob KZG commitments")
 	}
 
-	// Compute the KZG commitments inclusion proof.
+	if len(blobKzgCommitments) != len(cellsAndProofs) {
+		return nil, errors.New("mismatch in the number of blob KZG commitments and cellsAndProofs")
+	}
+
+	signedBlockHeader, err := signedBlock.Header()
+	if err != nil {
+		return nil, errors.Wrap(err, "signed block header")
+	}
+
 	kzgCommitmentsInclusionProof, err := blocks.MerkleProofKZGCommitments(blockBody)
 	if err != nil {
 		return nil, errors.Wrap(err, "merkle proof ZKG commitments")
 	}
 
-	// Compute cells and proofs.
-	cellsAndProofs := make([]kzg.CellsAndProofs, blobsCount)
-
-	eg, _ := errgroup.WithContext(context.Background())
-	for i := range blobs {
-		blobIndex := i
-		eg.Go(func() error {
-			blob := &blobs[blobIndex]
-			blobCellsAndProofs, err := kzg.ComputeCellsAndKZGProofs(blob)
-			if err != nil {
-				return errors.Wrap(err, "compute cells and KZG proofs")
-			}
-
-			cellsAndProofs[blobIndex] = blobCellsAndProofs
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-
-	// Get the column sidecars.
+	blobsCount := len(cellsAndProofs)
 	sidecars := make([]*ethpb.DataColumnSidecar, 0, fieldparams.NumberOfColumns)
 	for columnIndex := uint64(0); columnIndex < fieldparams.NumberOfColumns; columnIndex++ {
 		column := make([]kzg.Cell, 0, blobsCount)
@@ -196,9 +168,103 @@ func DataColumnSidecars(signedBlock interfaces.ReadOnlySignedBeaconBlock, blobs 
 
 		sidecars = append(sidecars, sidecar)
 	}
-	dataColumnComputationTime.Observe(float64(time.Since(startTime).Milliseconds()))
+
+	dataColumnComputationTime.Observe(float64(time.Since(start).Milliseconds()))
 	return sidecars, nil
 }
+
+// func DataColumnSidecars(signedBlock interfaces.ReadOnlySignedBeaconBlock, blobs []kzg.Blob) ([]*ethpb.DataColumnSidecar, error) {
+// 	startTime := time.Now()
+// 	blobsCount := len(blobs)
+// 	if blobsCount == 0 {
+// 		return nil, nil
+// 	}
+
+// 	// Get the signed block header.
+// 	signedBlockHeader, err := signedBlock.Header()
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "signed block header")
+// 	}
+
+// 	// Get the block body.
+// 	block := signedBlock.Block()
+// 	blockBody := block.Body()
+
+// 	// Get the blob KZG commitments.
+// 	blobKzgCommitments, err := blockBody.BlobKzgCommitments()
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "blob KZG commitments")
+// 	}
+
+// 	// Compute the KZG commitments inclusion proof.
+// 	kzgCommitmentsInclusionProof, err := blocks.MerkleProofKZGCommitments(blockBody)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "merkle proof ZKG commitments")
+// 	}
+
+// 	// Compute cells and proofs.
+// 	cellsAndProofs := make([]kzg.CellsAndProofs, blobsCount)
+
+// 	eg, _ := errgroup.WithContext(context.Background())
+// 	for i := range blobs {
+// 		blobIndex := i
+// 		eg.Go(func() error {
+// 			blob := &blobs[blobIndex]
+// 			blobCellsAndProofs, err := kzg.ComputeCellsAndKZGProofs(blob)
+// 			if err != nil {
+// 				return errors.Wrap(err, "compute cells and KZG proofs")
+// 			}
+
+// 			cellsAndProofs[blobIndex] = blobCellsAndProofs
+// 			return nil
+// 		})
+// 	}
+// 	if err := eg.Wait(); err != nil {
+// 		return nil, err
+// 	}
+
+// 	// Get the column sidecars.
+// 	sidecars := make([]*ethpb.DataColumnSidecar, 0, fieldparams.NumberOfColumns)
+// 	for columnIndex := uint64(0); columnIndex < fieldparams.NumberOfColumns; columnIndex++ {
+// 		column := make([]kzg.Cell, 0, blobsCount)
+// 		kzgProofOfColumn := make([]kzg.Proof, 0, blobsCount)
+
+// 		for rowIndex := 0; rowIndex < blobsCount; rowIndex++ {
+// 			cellsForRow := cellsAndProofs[rowIndex].Cells
+// 			proofsForRow := cellsAndProofs[rowIndex].Proofs
+
+// 			cell := cellsForRow[columnIndex]
+// 			column = append(column, cell)
+
+// 			kzgProof := proofsForRow[columnIndex]
+// 			kzgProofOfColumn = append(kzgProofOfColumn, kzgProof)
+// 		}
+
+// 		columnBytes := make([][]byte, 0, blobsCount)
+// 		for i := range column {
+// 			columnBytes = append(columnBytes, column[i][:])
+// 		}
+
+// 		kzgProofOfColumnBytes := make([][]byte, 0, blobsCount)
+// 		for _, kzgProof := range kzgProofOfColumn {
+// 			copiedProof := kzgProof
+// 			kzgProofOfColumnBytes = append(kzgProofOfColumnBytes, copiedProof[:])
+// 		}
+
+// 		sidecar := &ethpb.DataColumnSidecar{
+// 			ColumnIndex:                  columnIndex,
+// 			DataColumn:                   columnBytes,
+// 			KzgCommitments:               blobKzgCommitments,
+// 			KzgProof:                     kzgProofOfColumnBytes,
+// 			SignedBlockHeader:            signedBlockHeader,
+// 			KzgCommitmentsInclusionProof: kzgCommitmentsInclusionProof,
+// 		}
+
+// 		sidecars = append(sidecars, sidecar)
+// 	}
+// 	dataColumnComputationTime.Observe(float64(time.Since(startTime).Milliseconds()))
+// 	return sidecars, nil
+// }
 
 // CustodyGroupSamplingSize returns the number of custody groups the node should sample from.
 // https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/das-core.md#custody-sampling
