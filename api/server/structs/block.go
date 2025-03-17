@@ -574,14 +574,14 @@ type (
 
 type SignedBeaconBlockContentsFulu struct {
 	SignedBlock *SignedBeaconBlockFulu `json:"signed_block"`
-	KzgProofs   []string               `json:"kzg_proofs"`
+	CellProofs  []string               `json:"cell_proofs"`
 	Blobs       []string               `json:"blobs"`
 }
 
 type BeaconBlockContentsFulu struct {
-	Block     *BeaconBlockElectra `json:"block"`
-	KzgProofs []string            `json:"kzg_proofs"`
-	Blobs     []string            `json:"blobs"`
+	Block      *BeaconBlockElectra `json:"block"`
+	CellProofs []string            `json:"cell_proofs"`
+	Blobs      []string            `json:"blobs"`
 }
 
 type SignedBeaconBlockFulu struct {

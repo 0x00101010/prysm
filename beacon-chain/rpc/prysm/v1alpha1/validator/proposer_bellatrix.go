@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prysmaticlabs/prysm/v5/api/client/builder"
 	"github.com/prysmaticlabs/prysm/v5/beacon-chain/core/signing"
+	coreTime "github.com/prysmaticlabs/prysm/v5/beacon-chain/core/time"
 	fieldparams "github.com/prysmaticlabs/prysm/v5/config/fieldparams"
 	"github.com/prysmaticlabs/prysm/v5/config/params"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/blocks"
@@ -54,7 +55,7 @@ const blockBuilderTimeout = 1 * time.Second
 const gasLimitAdjustmentFactor = 1024
 
 // Sets the execution data for the block. Execution data can come from local EL client or remote builder depends on validator registration and circuit breaker conditions.
-func setExecutionData(ctx context.Context, blk interfaces.SignedBeaconBlock, local *blocks.GetPayloadResponse, bid builder.Bid, builderBoostFactor primitives.Gwei) (primitives.Wei, *enginev1.BlobsBundle, error) {
+func setExecutionData(ctx context.Context, blk interfaces.SignedBeaconBlock, local *blocks.GetPayloadResponse, bid builder.Bid, builderBoostFactor primitives.Gwei) (primitives.Wei, any, error) {
 	_, span := trace.StartSpan(ctx, "ProposerServer.setExecutionData")
 	defer span.End()
 
@@ -67,15 +68,25 @@ func setExecutionData(ctx context.Context, blk interfaces.SignedBeaconBlock, loc
 		return primitives.ZeroWei(), nil, errors.New("local payload is nil")
 	}
 
+	var blobsBundle any
+	var kzgCommitments [][]byte
+	if coreTime.PeerDASIsActive(slot) {
+		blobsBundle = local.BlobsBundleV2
+		kzgCommitments = local.BlobsBundleV2.KzgCommitments
+	} else {
+		blobsBundle = local.BlobsBundle
+		kzgCommitments = local.BlobsBundle.KzgCommitments
+	}
+
 	// Use local payload if builder payload is nil.
 	if bid == nil {
-		return local.Bid, local.BlobsBundle, setLocalExecution(blk, local)
+		return local.Bid, blobsBundle, setLocalExecution(blk, local, kzgCommitments)
 	}
 
 	builderPayload, err := bid.Header()
 	if err != nil {
 		log.WithError(err).Warn("Proposer: failed to retrieve header from BuilderBid")
-		return local.Bid, local.BlobsBundle, setLocalExecution(blk, local)
+		return local.Bid, blobsBundle, setLocalExecution(blk, local, kzgCommitments)
 	}
 
 	switch {
@@ -84,7 +95,7 @@ func setExecutionData(ctx context.Context, blk interfaces.SignedBeaconBlock, loc
 		if err != nil {
 			tracing.AnnotateError(span, err)
 			log.WithError(err).Warn("Proposer: failed to match withdrawals root")
-			return local.Bid, local.BlobsBundle, setLocalExecution(blk, local)
+			return local.Bid, blobsBundle, setLocalExecution(blk, local, kzgCommitments)
 		}
 
 		// Compare payload values between local and builder. Default to the local value if it is higher.
@@ -97,7 +108,7 @@ func setExecutionData(ctx context.Context, blk interfaces.SignedBeaconBlock, loc
 				"minBuilderBid":    minBid,
 				"builderGweiValue": builderValueGwei,
 			}).Warn("Proposer: using local execution payload because min bid not attained")
-			return local.Bid, local.BlobsBundle, setLocalExecution(blk, local)
+			return local.Bid, blobsBundle, setLocalExecution(blk, local, kzgCommitments)
 		}
 
 		// Use local block if min difference is not attained
@@ -108,7 +119,7 @@ func setExecutionData(ctx context.Context, blk interfaces.SignedBeaconBlock, loc
 				"minBidDiff":       minDiff,
 				"builderGweiValue": builderValueGwei,
 			}).Warn("Proposer: using local execution payload because min difference with local value was not attained")
-			return local.Bid, local.BlobsBundle, setLocalExecution(blk, local)
+			return local.Bid, blobsBundle, setLocalExecution(blk, local, kzgCommitments)
 		}
 
 		// Use builder payload if the following in true:
@@ -133,7 +144,7 @@ func setExecutionData(ctx context.Context, blk interfaces.SignedBeaconBlock, loc
 				bidDeneb, ok := bid.(builder.BidDeneb)
 				if !ok {
 					log.Warnf("bid type %T does not implement builder.BidDeneb", bid)
-					return local.Bid, local.BlobsBundle, setLocalExecution(blk, local)
+					return local.Bid, blobsBundle, setLocalExecution(blk, local, kzgCommitments)
 				} else {
 					builderKzgCommitments = bidDeneb.BlobKzgCommitments()
 				}
@@ -144,14 +155,14 @@ func setExecutionData(ctx context.Context, blk interfaces.SignedBeaconBlock, loc
 				bidElectra, ok := bid.(builder.BidElectra)
 				if !ok {
 					log.Warnf("bid type %T does not implement builder.BidElectra", bid)
-					return local.Bid, local.BlobsBundle, setLocalExecution(blk, local)
+					return local.Bid, blobsBundle, setLocalExecution(blk, local, kzgCommitments)
 				} else {
 					executionRequests = bidElectra.ExecutionRequests()
 				}
 			}
 			if err := setBuilderExecution(blk, builderPayload, builderKzgCommitments, executionRequests); err != nil {
 				log.WithError(err).Warn("Proposer: failed to set builder payload")
-				return local.Bid, local.BlobsBundle, setLocalExecution(blk, local)
+				return local.Bid, blobsBundle, setLocalExecution(blk, local, kzgCommitments)
 			} else {
 				return bid.Value(), nil, nil
 			}
@@ -171,11 +182,11 @@ func setExecutionData(ctx context.Context, blk interfaces.SignedBeaconBlock, loc
 			trace.Int64Attribute("builderGweiValue", int64(builderValueGwei)),     // lint:ignore uintcast -- This is OK for tracing.
 			trace.Int64Attribute("builderBoostFactor", int64(builderBoostFactor)), // lint:ignore uintcast -- This is OK for tracing.
 		)
-		return local.Bid, local.BlobsBundle, setLocalExecution(blk, local)
+		return local.Bid, blobsBundle, setLocalExecution(blk, local, kzgCommitments)
 	default: // Bellatrix case.
 		if err := setBuilderExecution(blk, builderPayload, nil, nil); err != nil {
 			log.WithError(err).Warn("Proposer: failed to set builder payload")
-			return local.Bid, local.BlobsBundle, setLocalExecution(blk, local)
+			return local.Bid, blobsBundle, setLocalExecution(blk, local, kzgCommitments)
 		} else {
 			return bid.Value(), nil, nil
 		}
@@ -373,11 +384,7 @@ func matchingWithdrawalsRoot(local, builder interfaces.ExecutionData) (bool, err
 
 // setLocalExecution sets the execution context for a local beacon block.
 // It delegates to setExecution for the actual work.
-func setLocalExecution(blk interfaces.SignedBeaconBlock, local *blocks.GetPayloadResponse) error {
-	var kzgCommitments [][]byte
-	if local.BlobsBundle != nil {
-		kzgCommitments = local.BlobsBundle.KzgCommitments
-	}
+func setLocalExecution(blk interfaces.SignedBeaconBlock, local *blocks.GetPayloadResponse, kzgCommitments [][]byte) error {
 	if local.ExecutionRequests != nil {
 		if err := blk.SetExecutionRequests(local.ExecutionRequests); err != nil {
 			return errors.Wrap(err, "could not set execution requests")

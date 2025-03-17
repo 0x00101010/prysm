@@ -76,7 +76,6 @@ func (vs *Server) getLocalPayloadFromEngine(
 		"slot":           slot,
 		"headRoot":       fmt.Sprintf("%#x", parentRoot),
 	}
-	payloadId, ok := vs.PayloadIDCache.PayloadID(slot, parentRoot)
 
 	val, tracked := vs.TrackedValidatorsCache.Validator(proposerId)
 	if !tracked {
@@ -84,6 +83,7 @@ func (vs *Server) getLocalPayloadFromEngine(
 	}
 	setFeeRecipientIfBurnAddress(&val)
 
+	payloadId, ok := vs.PayloadIDCache.PayloadID(slot, parentRoot)
 	if ok && payloadId != [8]byte{} {
 		// Payload ID is cache hit. Return the cached payload ID.
 		var pid primitives.PayloadID
@@ -105,7 +105,7 @@ func (vs *Server) getLocalPayloadFromEngine(
 	parentHash, err := vs.getParentBlockHash(ctx, st, slot)
 	switch {
 	case errors.Is(err, errActivationNotReached) || errors.Is(err, errNoTerminalBlockHash):
-		return consensusblocks.NewGetPayloadResponse(emptyPayload())
+		return consensusblocks.NewGetPayloadResponse(emptyPayload(), slot)
 	case err != nil:
 		return nil, err
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 // constructGenericBeaconBlock constructs a `GenericBeaconBlock` based on the block version and other parameters.
-func (vs *Server) constructGenericBeaconBlock(sBlk interfaces.SignedBeaconBlock, blobsBundle *enginev1.BlobsBundle, winningBid primitives.Wei) (*ethpb.GenericBeaconBlock, error) {
+func (vs *Server) constructGenericBeaconBlock(sBlk interfaces.SignedBeaconBlock, blobsBundle any, winningBid primitives.Wei) (*ethpb.GenericBeaconBlock, error) {
 	if sBlk == nil || sBlk.Block() == nil {
 		return nil, fmt.Errorf("block cannot be nil")
 	}
@@ -35,11 +35,23 @@ func (vs *Server) constructGenericBeaconBlock(sBlk interfaces.SignedBeaconBlock,
 	case version.Capella:
 		return vs.constructCapellaBlock(blockProto, isBlinded, bidStr), nil
 	case version.Deneb:
-		return vs.constructDenebBlock(blockProto, isBlinded, bidStr, blobsBundle), nil
+		bundle, ok := blobsBundle.(*enginev1.BlobsBundle)
+		if !ok {
+			return nil, fmt.Errorf("unsupported blobs bundle type: %T", blobsBundle)
+		}
+		return vs.constructDenebBlock(blockProto, isBlinded, bidStr, bundle), nil
 	case version.Electra:
-		return vs.constructElectraBlock(blockProto, isBlinded, bidStr, blobsBundle), nil
+		bundle, ok := blobsBundle.(*enginev1.BlobsBundle)
+		if !ok {
+			return nil, fmt.Errorf("unsupported blobs bundle type: %T", blobsBundle)
+		}
+		return vs.constructElectraBlock(blockProto, isBlinded, bidStr, bundle), nil
 	case version.Fulu:
-		return vs.constructFuluBlock(blockProto, isBlinded, bidStr, blobsBundle), nil
+		bundle, ok := blobsBundle.(*enginev1.BlobsBundleV2)
+		if !ok {
+			return nil, fmt.Errorf("unsupported blobs bundle type: %T", blobsBundle)
+		}
+		return vs.constructFuluBlock(blockProto, isBlinded, bidStr, bundle), nil
 	default:
 		return nil, fmt.Errorf("unknown block version: %d", sBlk.Version())
 	}
@@ -92,13 +104,13 @@ func (vs *Server) constructElectraBlock(blockProto proto.Message, isBlinded bool
 	return &ethpb.GenericBeaconBlock{Block: &ethpb.GenericBeaconBlock_Electra{Electra: electraContents}, IsBlinded: false, PayloadValue: payloadValue}
 }
 
-func (vs *Server) constructFuluBlock(blockProto proto.Message, isBlinded bool, payloadValue string, bundle *enginev1.BlobsBundle) *ethpb.GenericBeaconBlock {
+func (vs *Server) constructFuluBlock(blockProto proto.Message, isBlinded bool, payloadValue string, bundle *enginev1.BlobsBundleV2) *ethpb.GenericBeaconBlock {
 	if isBlinded {
 		return &ethpb.GenericBeaconBlock{Block: &ethpb.GenericBeaconBlock_BlindedFulu{BlindedFulu: blockProto.(*ethpb.BlindedBeaconBlockFulu)}, IsBlinded: true, PayloadValue: payloadValue}
 	}
 	fuluContents := &ethpb.BeaconBlockContentsFulu{Block: blockProto.(*ethpb.BeaconBlockElectra)}
 	if bundle != nil {
-		fuluContents.KzgProofs = bundle.Proofs
+		fuluContents.CellProofs = bundle.CellProofs
 		fuluContents.Blobs = bundle.Blobs
 	}
 	return &ethpb.GenericBeaconBlock{Block: &ethpb.GenericBeaconBlock_Fulu{Fulu: fuluContents}, IsBlinded: false, PayloadValue: payloadValue}

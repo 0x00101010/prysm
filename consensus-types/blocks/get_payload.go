@@ -1,17 +1,20 @@
 package blocks
 
 import (
+	"github.com/prysmaticlabs/prysm/v5/config/params"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/interfaces"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/primitives"
 	pb "github.com/prysmaticlabs/prysm/v5/proto/engine/v1"
+	"github.com/prysmaticlabs/prysm/v5/time/slots"
 	"google.golang.org/protobuf/proto"
 )
 
 // GetPayloadResponse represents the result of unmarshaling an execution engine
-// GetPayloadResponseV(1|2|3|4) value.
+// GetPayloadResponseV(1|2|3|4|5) value.
 type GetPayloadResponse struct {
 	ExecutionData   interfaces.ExecutionData
 	BlobsBundle     *pb.BlobsBundle
+	BlobsBundleV2   *pb.BlobsBundleV2
 	OverrideBuilder bool
 	// todo: should we convert this to Gwei up front?
 	Bid               primitives.Wei
@@ -19,8 +22,8 @@ type GetPayloadResponse struct {
 }
 
 // bundleGetter is an interface satisfied by get payload responses that have a blobs bundle.
-type bundleGetter interface {
-	GetBlobsBundle() *pb.BlobsBundle
+type bundleGetter[T any] interface {
+	GetBlobsBundle() T
 }
 
 // bidValueGetter is an interface satisfied by get payload responses that have a bid value.
@@ -36,12 +39,21 @@ type executionRequestsGetter interface {
 	GetDecodedExecutionRequests() (*pb.ExecutionRequests, error)
 }
 
-func NewGetPayloadResponse(msg proto.Message) (*GetPayloadResponse, error) {
+func NewGetPayloadResponse(msg proto.Message, slot primitives.Slot) (*GetPayloadResponse, error) {
 	r := &GetPayloadResponse{}
-	bundleGetter, hasBundle := msg.(bundleGetter)
-	if hasBundle {
-		r.BlobsBundle = bundleGetter.GetBlobsBundle()
+
+	if slots.ToEpoch(slot) >= params.BeaconConfig().FuluForkEpoch {
+		bundleGetter, hasBundle := msg.(bundleGetter[*pb.BlobsBundleV2])
+		if hasBundle {
+			r.BlobsBundleV2 = bundleGetter.GetBlobsBundle()
+		}
+	} else {
+		bundleGetter, hasBundle := msg.(bundleGetter[*pb.BlobsBundle])
+		if hasBundle {
+			r.BlobsBundle = bundleGetter.GetBlobsBundle()
+		}
 	}
+
 	bidValueGetter, hasBid := msg.(bidValueGetter)
 	executionRequestsGetter, hasExecutionRequests := msg.(executionRequestsGetter)
 	wei := primitives.ZeroWei()

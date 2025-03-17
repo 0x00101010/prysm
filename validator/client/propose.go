@@ -284,9 +284,9 @@ func buildGenericSignedBlockFuluWithBlobs(pb proto.Message, b *ethpb.GenericBeac
 	return &ethpb.GenericSignedBeaconBlock{
 		Block: &ethpb.GenericSignedBeaconBlock_Fulu{
 			Fulu: &ethpb.SignedBeaconBlockContentsFulu{
-				Block:     fuluBlock,
-				KzgProofs: b.GetFulu().KzgProofs,
-				Blobs:     b.GetFulu().Blobs,
+				Block:      fuluBlock,
+				CellProofs: b.GetFulu().CellProofs,
+				Blobs:      b.GetFulu().Blobs,
 			},
 		},
 	}, nil

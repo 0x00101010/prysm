@@ -73,8 +73,8 @@ func unblindBlobsSidecars(block interfaces.SignedBeaconBlock, bundle *enginev1.B
 
 // TODO: Add tests
 func unblindDataColumnsSidecars(block interfaces.SignedBeaconBlock, bundle *enginev1.BlobsBundle) ([]*ethpb.DataColumnSidecar, error) {
-	// Check if the block is at least a Deneb block.
-	if block.Version() < version.Deneb {
+	// Check if the block is at least a Fulu block.
+	if block.Version() < version.Fulu {
 		return nil, nil
 	}
 
