@@ -468,9 +468,6 @@ message StreamBlocksResponse {
 
     // Representing an electra block.
     SignedBeaconBlockElectra electra_block = 6;
-
-    // Representing a fulu block.
-    SignedBeaconBlockFulu fulu_block = 7;
   }
 }
 
