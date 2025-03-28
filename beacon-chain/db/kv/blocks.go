@@ -907,12 +907,12 @@ func unmarshalBlock(_ context.Context, enc []byte) (interfaces.ReadOnlySignedBea
 			return nil, errors.Wrap(err, "could not unmarshal blinded Electra block")
 		}
 	case hasFuluKey(enc):
-		rawBlock = &ethpb.SignedBeaconBlockFulu{}
+		rawBlock = &ethpb.SignedBeaconBlockElectra{}
 		if err := rawBlock.UnmarshalSSZ(enc[len(fuluKey):]); err != nil {
 			return nil, errors.Wrap(err, "could not unmarshal Fulu block")
 		}
 	case hasFuluBlindKey(enc):
-		rawBlock = &ethpb.SignedBlindedBeaconBlockFulu{}
+		rawBlock = &ethpb.SignedBlindedBeaconBlockElectra{}
 		if err := rawBlock.UnmarshalSSZ(enc[len(fuluBlindKey):]); err != nil {
 			return nil, errors.Wrap(err, "could not unmarshal blinded Fulu block")
 		}

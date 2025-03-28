@@ -303,7 +303,7 @@ func TestGetBlockV2(t *testing.T) {
 		assert.DeepEqual(t, blk, b)
 	})
 	t.Run("fulu", func(t *testing.T) {
-		b := util.NewBeaconBlockFulu()
+		b := util.NewBeaconBlockElectra()
 		b.Block.Slot = 123
 		sb, err := blocks.NewSignedBeaconBlock(b)
 		require.NoError(t, err)
@@ -552,7 +552,7 @@ func TestGetBlockSSZV2(t *testing.T) {
 		assert.DeepEqual(t, sszExpected, writer.Body.Bytes())
 	})
 	t.Run("fulu", func(t *testing.T) {
-		b := util.NewBeaconBlockFulu()
+		b := util.NewBeaconBlockElectra()
 		b.Block.Slot = 123
 		sb, err := blocks.NewSignedBeaconBlock(b)
 		require.NoError(t, err)
@@ -1092,7 +1092,7 @@ func TestGetBlindedBlock(t *testing.T) {
 		assert.DeepEqual(t, blk, b)
 	})
 	t.Run("fulu", func(t *testing.T) {
-		b := util.NewBlindedBeaconBlockFulu()
+		b := util.NewBlindedBeaconBlockElectra()
 		sb, err := blocks.NewSignedBeaconBlock(b)
 		require.NoError(t, err)
 

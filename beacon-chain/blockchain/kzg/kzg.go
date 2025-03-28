@@ -7,6 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 )
 
+// CellsPerExtBlob is the number of cells in an extended blob.
+const CellsPerExtBlob = ckzg4844.CellsPerExtBlob
+
 // BytesPerBlob is the number of bytes in a single blob.
 const BytesPerBlob = ckzg4844.BytesPerBlob
 

@@ -45,7 +45,7 @@ func TestFullCommitmentsToCheck(t *testing.T) {
 		{
 			name: "commitments within da",
 			block: func(t *testing.T) blocks.ROBlock {
-				d := util.NewBeaconBlockFulu()
+				d := util.NewBeaconBlockElectra()
 				d.Block.Body.BlobKzgCommitments = commits
 				d.Block.Slot = 100
 				sb, err := blocks.NewSignedBeaconBlock(d)

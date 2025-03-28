@@ -554,7 +554,7 @@ func TestService_BroadcastDataColumn(t *testing.T) {
 		blobs = append(blobs, blob)
 	}
 
-	b := util.NewBeaconBlockFulu()
+	b := util.NewBeaconBlockElectra()
 	b.Block.Body.BlobKzgCommitments = comts
 	sb, err := blocks.NewSignedBeaconBlock(b)
 	require.NoError(t, err)

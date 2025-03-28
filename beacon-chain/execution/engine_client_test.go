@@ -2492,7 +2492,7 @@ func TestReconstructDataColumnSidecars(t *testing.T) {
 	params.OverrideBeaconConfig(cfg)
 
 	client := &Service{capabilityCache: &capabilityCache{}}
-	b := util.NewBeaconBlockFulu()
+	b := util.NewBeaconBlockElectra()
 	b.Block.Slot = 4 * params.BeaconConfig().SlotsPerEpoch
 	kzgCommitments := createRandomKzgCommitments(t, 6)
 	b.Block.Body.BlobKzgCommitments = kzgCommitments

@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v5/api/server"
+	"github.com/prysmaticlabs/prysm/v5/beacon-chain/blockchain/kzg"
 	fieldparams "github.com/prysmaticlabs/prysm/v5/config/fieldparams"
 	"github.com/prysmaticlabs/prysm/v5/config/params"
 	"github.com/prysmaticlabs/prysm/v5/consensus-types/blocks"
@@ -576,7 +577,7 @@ func (r *ExecutionPayloadResponse) ParsePayload() (ParsedPayload, error) {
 		return nil, errors.Wrap(err, fmt.Sprintf("unsupported version %s", strings.ToLower(r.Version)))
 	}
 	if v >= version.Fulu {
-		toProto = &ExecutionPayloadFuluAndBlobsBundle{}
+		toProto = &ExecutionPayloadAndBlobsBundleFulu{}
 	} else if v >= version.Deneb {
 		toProto = &ExecutionPayloadDenebAndBlobsBundle{}
 	} else if v >= version.Capella {
@@ -667,11 +668,6 @@ type Withdrawal struct {
 // SignedBlindedBeaconBlockBellatrix is the request object for builder API /eth/v1/builder/blinded_blocks.
 type SignedBlindedBeaconBlockBellatrix struct {
 	*eth.SignedBlindedBeaconBlockBellatrix
-}
-
-// SignedBlindedBeaconBlockFulu is the request object for builder API /eth/v1/builder/blinded_blocks after Fulu.
-type SignedBlindedBeaconBlockFulu struct {
-	*eth.SignedBlindedBeaconBlockFulu
 }
 
 // ProposerSlashing is a field in BlindedBeaconBlockBodyCapella.
@@ -1206,6 +1202,72 @@ func FromBundleProto(bundle blocks.BlobsBundle) *BlobsBundle {
 	}
 }
 
+type BlobsBundleV2 struct {
+	Commitments []hexutil.Bytes `json:"commitments"`
+	Proofs      []hexutil.Bytes `json:"proofs"`
+	Blobs       []hexutil.Bytes `json:"blobs"`
+}
+
+func (b BlobsBundleV2) ToProto() (*v1.BlobsBundleV2, error) {
+	if len(b.Blobs) > fieldparams.MaxBlobCommitmentsPerBlock {
+		return nil, fmt.Errorf("blobs length %d is more than max %d", len(b.Blobs), fieldparams.MaxBlobCommitmentsPerBlock)
+	}
+	if len(b.Commitments) != len(b.Blobs) {
+		return nil, fmt.Errorf("commitments length %d does not equal blobs length %d", len(b.Commitments), len(b.Blobs))
+	}
+	if len(b.Proofs) != len(b.Blobs)*kzg.CellsPerExtBlob {
+		return nil, fmt.Errorf("proofs length %d does not equal blobs length %d multiplied by CELLS_PER_EXT_BLOB", len(b.Proofs), len(b.Blobs))
+	}
+
+	commitments := make([][]byte, len(b.Commitments))
+	for i := range b.Commitments {
+		if len(b.Commitments[i]) != fieldparams.BLSPubkeyLength {
+			return nil, fmt.Errorf("commitment length %d is not %d", len(b.Commitments[i]), fieldparams.BLSPubkeyLength)
+		}
+		commitments[i] = bytesutil.SafeCopyBytes(b.Commitments[i])
+	}
+	proofs := make([][]byte, len(b.Proofs))
+	for i := range b.Proofs {
+		if len(b.Proofs[i]) != fieldparams.BLSPubkeyLength {
+			return nil, fmt.Errorf("proof length %d is not %d", len(b.Proofs[i]), fieldparams.BLSPubkeyLength)
+		}
+		proofs[i] = bytesutil.SafeCopyBytes(b.Proofs[i])
+	}
+	blobs := make([][]byte, len(b.Blobs))
+	for i := range b.Blobs {
+		if len(b.Blobs[i]) != fieldparams.BlobLength {
+			return nil, fmt.Errorf("blob length %d is not %d", len(b.Blobs[i]), fieldparams.BlobLength)
+		}
+		blobs[i] = bytesutil.SafeCopyBytes(b.Blobs[i])
+	}
+	return &v1.BlobsBundleV2{
+		KzgCommitments: commitments,
+		Proofs:         proofs,
+		Blobs:          blobs,
+	}, nil
+}
+
+// FromBundleV2Proto converts the proto bundle type to the builder type.
+func FromBundleV2Proto(bundle blocks.BlobsBundle) *BlobsBundleV2 {
+	commitments := make([]hexutil.Bytes, len(bundle.GetKzgCommitments()))
+	for i := range bundle.GetKzgCommitments() {
+		commitments[i] = bytesutil.SafeCopyBytes(bundle.GetKzgCommitments()[i])
+	}
+	proofs := make([]hexutil.Bytes, len(bundle.GetProofs()))
+	for i := range bundle.GetProofs() {
+		proofs[i] = bytesutil.SafeCopyBytes(bundle.GetProofs()[i])
+	}
+	blobs := make([]hexutil.Bytes, len(bundle.GetBlobs()))
+	for i := range bundle.GetBlobs() {
+		blobs[i] = bytesutil.SafeCopyBytes(bundle.GetBlobs()[i])
+	}
+	return &BlobsBundleV2{
+		Commitments: commitments,
+		Proofs:      proofs,
+		Blobs:       blobs,
+	}
+}
+
 // ToProto returns ExecutionPayloadDeneb Proto and BlobsBundle Proto separately.
 func (r *ExecPayloadResponseDeneb) ToProto() (*v1.ExecutionPayloadDeneb, *v1.BlobsBundle, error) {
 	if r.Data == nil {
@@ -1338,13 +1400,12 @@ func (bb *BuilderBidElectra) ToProto() (*eth.BuilderBidElectra, error) {
 	}, nil
 }
 
-// ExecutionPayloadFuluAndBlobsBundle is a field of ExecPayloadResponseFulu.
-type ExecutionPayloadFuluAndBlobsBundle struct {
-	ExecutionPayload *ExecutionPayloadFulu `json:"execution_payload"`
-	BlobsBundle      *BlobsBundle          `json:"blobs_bundle"`
+type ExecutionPayloadAndBlobsBundleFulu struct {
+	ExecutionPayload *ExecutionPayloadDeneb `json:"execution_payload"`
+	BlobsBundle      *BlobsBundle           `json:"blobs_bundle"`
 }
 
-func (r *ExecutionPayloadFuluAndBlobsBundle) PayloadProto() (proto.Message, error) {
+func (r *ExecutionPayloadAndBlobsBundleFulu) PayloadProto() (proto.Message, error) {
 	if r.ExecutionPayload == nil {
 		return nil, errors.Wrap(consensusblocks.ErrNilObject, "nil execution payload in combined fulu payload")
 	}
@@ -1352,115 +1413,11 @@ func (r *ExecutionPayloadFuluAndBlobsBundle) PayloadProto() (proto.Message, erro
 	return pb, err
 }
 
-func (r *ExecutionPayloadFuluAndBlobsBundle) BundleProto() (proto.Message, error) {
+func (r *ExecutionPayloadAndBlobsBundleFulu) BundleProto() (proto.Message, error) {
 	if r.BlobsBundle == nil {
 		return nil, errors.Wrap(consensusblocks.ErrNilObject, "nil blobs bundle")
 	}
 	return r.BlobsBundle.ToProto()
-}
-
-// ExecutionPayloadFulu is a field of ExecutionPayloadFuluAndBlobsBundle
-type ExecutionPayloadFulu struct {
-	ParentHash    hexutil.Bytes   `json:"parent_hash"`
-	FeeRecipient  hexutil.Bytes   `json:"fee_recipient"`
-	StateRoot     hexutil.Bytes   `json:"state_root"`
-	ReceiptsRoot  hexutil.Bytes   `json:"receipts_root"`
-	LogsBloom     hexutil.Bytes   `json:"logs_bloom"`
-	PrevRandao    hexutil.Bytes   `json:"prev_randao"`
-	BlockNumber   Uint64String    `json:"block_number"`
-	GasLimit      Uint64String    `json:"gas_limit"`
-	GasUsed       Uint64String    `json:"gas_used"`
-	Timestamp     Uint64String    `json:"timestamp"`
-	ExtraData     hexutil.Bytes   `json:"extra_data"`
-	BaseFeePerGas Uint256         `json:"base_fee_per_gas"`
-	BlockHash     hexutil.Bytes   `json:"block_hash"`
-	Transactions  []hexutil.Bytes `json:"transactions"`
-	Withdrawals   []Withdrawal    `json:"withdrawals"`
-	BlobGasUsed   Uint64String    `json:"blob_gas_used"`   // new in deneb
-	ExcessBlobGas Uint64String    `json:"excess_blob_gas"` // new in deneb
-	ProofVersion  hexutil.Bytes   `json:"proof_version"`   // new in fulu
-}
-
-// ToProto returns the ExecutionPayloadFulu Proto.
-func (p *ExecutionPayloadFulu) ToProto() (*v1.ExecutionPayloadFulu, error) {
-	if p == nil {
-		return nil, errors.Wrap(consensusblocks.ErrNilObject, "nil execution payload")
-	}
-
-	txs := make([][]byte, len(p.Transactions))
-	for i := range p.Transactions {
-		txs[i] = bytesutil.SafeCopyBytes(p.Transactions[i])
-	}
-	withdrawals := make([]*v1.Withdrawal, len(p.Withdrawals))
-	for i, w := range p.Withdrawals {
-		withdrawals[i] = &v1.Withdrawal{
-			Index:          w.Index.Uint64(),
-			ValidatorIndex: types.ValidatorIndex(w.ValidatorIndex.Uint64()),
-			Address:        bytesutil.SafeCopyBytes(w.Address),
-			Amount:         w.Amount.Uint64(),
-		}
-	}
-
-	return &v1.ExecutionPayloadFulu{
-		ParentHash:    bytesutil.SafeCopyBytes(p.ParentHash),
-		FeeRecipient:  bytesutil.SafeCopyBytes(p.FeeRecipient),
-		StateRoot:     bytesutil.SafeCopyBytes(p.StateRoot),
-		ReceiptsRoot:  bytesutil.SafeCopyBytes(p.ReceiptsRoot),
-		LogsBloom:     bytesutil.SafeCopyBytes(p.LogsBloom),
-		PrevRandao:    bytesutil.SafeCopyBytes(p.PrevRandao),
-		BlockNumber:   uint64(p.BlockNumber),
-		GasLimit:      uint64(p.GasLimit),
-		GasUsed:       uint64(p.GasUsed),
-		Timestamp:     uint64(p.Timestamp),
-		ExtraData:     bytesutil.SafeCopyBytes(p.ExtraData),
-		BaseFeePerGas: bytesutil.SafeCopyBytes(p.BaseFeePerGas.SSZBytes()),
-		BlockHash:     bytesutil.SafeCopyBytes(p.BlockHash),
-		Transactions:  txs,
-		Withdrawals:   withdrawals,
-		BlobGasUsed:   uint64(p.BlobGasUsed),
-		ExcessBlobGas: uint64(p.ExcessBlobGas),
-		ProofVersion:  bytesutil.SafeCopyBytes(p.ProofVersion),
-	}, nil
-}
-
-func FromProtoFulu(payload *v1.ExecutionPayloadFulu) (ExecutionPayloadFulu, error) {
-	bFee, err := sszBytesToUint256(payload.BaseFeePerGas)
-	if err != nil {
-		return ExecutionPayloadFulu{}, err
-	}
-	txs := make([]hexutil.Bytes, len(payload.Transactions))
-	for i := range payload.Transactions {
-		txs[i] = bytesutil.SafeCopyBytes(payload.Transactions[i])
-	}
-	withdrawals := make([]Withdrawal, len(payload.Withdrawals))
-	for i, w := range payload.Withdrawals {
-		withdrawals[i] = Withdrawal{
-			Index:          Uint256{Int: big.NewInt(0).SetUint64(w.Index)},
-			ValidatorIndex: Uint256{Int: big.NewInt(0).SetUint64(uint64(w.ValidatorIndex))},
-			Address:        bytesutil.SafeCopyBytes(w.Address),
-			Amount:         Uint256{Int: big.NewInt(0).SetUint64(w.Amount)},
-		}
-	}
-	return ExecutionPayloadFulu{
-		ParentHash:    bytesutil.SafeCopyBytes(payload.ParentHash),
-		FeeRecipient:  bytesutil.SafeCopyBytes(payload.FeeRecipient),
-		StateRoot:     bytesutil.SafeCopyBytes(payload.StateRoot),
-		ReceiptsRoot:  bytesutil.SafeCopyBytes(payload.ReceiptsRoot),
-		LogsBloom:     bytesutil.SafeCopyBytes(payload.LogsBloom),
-		PrevRandao:    bytesutil.SafeCopyBytes(payload.PrevRandao),
-		BlockNumber:   Uint64String(payload.BlockNumber),
-		GasLimit:      Uint64String(payload.GasLimit),
-		GasUsed:       Uint64String(payload.GasUsed),
-		Timestamp:     Uint64String(payload.Timestamp),
-		ExtraData:     bytesutil.SafeCopyBytes(payload.ExtraData),
-		BaseFeePerGas: bFee,
-		BlockHash:     bytesutil.SafeCopyBytes(payload.BlockHash),
-		Transactions:  txs,
-		Withdrawals:   withdrawals,
-		BlobGasUsed:   Uint64String(payload.BlobGasUsed),
-		ExcessBlobGas: Uint64String(payload.ExcessBlobGas),
-		ProofVersion:  bytesutil.SafeCopyBytes(payload.ProofVersion),
-	}, nil
 }
 
 // ExecutionRequestsV1 is a wrapper for different execution requests
